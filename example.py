@@ -53,7 +53,7 @@ def train():
 
     # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)
     # trainer = pl.Trainer(gpus=8) (if you have GPUs)
-    trainer = pl.Trainer(gpus=1)
+    trainer = pl.Trainer(fast_dev_run=True)
     trainer.fit(autoencoder, train_loader)
 
 
