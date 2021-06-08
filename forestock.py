@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import pandas as pd
+import torchmetrics
 import pytorch_lightning as pl
 
 from torch.nn import functional as F
@@ -16,7 +17,7 @@ class LitForestock(pl.LightningModule):
     def __init__(self):
         super().__init__()
         self.gru_stock = torch.nn.Sequential(
-            torch.nn.Conv1d(32, 7),
+            torch.nn.Conv1d(50, 32, 7),
             torch.nn.MaxPool1d(3, stride=2),
             torch.nn.GRU(hidden_size=50, num_layers=2, bidirectional=True)
         )
@@ -44,10 +45,10 @@ class LitForestock(pl.LightningModule):
 
         self.stock_h = np.array([d_norm[:, :6][i + self.H_STEPS].copy()
                                         for i in range(steps)])
-        self.ema_h = np.array([d_norm[:, 6:8][i + self.H_STEPS].copy()
-                                        for i in range(steps)])
-        self.bb_h = np.array([d_norm[8:][i + self.H_STEPS].copy()
-                                        for i in range(steps)])
+        # self.ema_h = np.array([d_norm[:, 6:8][i + self.H_STEPS].copy()
+        #                                 for i in range(steps)])
+        # self.bb_h = np.array([d_norm[8:][i + self.H_STEPS].copy()
+        #                                 for i in range(steps)])
 
         # Target
         tr_h = np.array([d_norm[0][i + self.H_STEPS].copy()
@@ -56,16 +57,18 @@ class LitForestock(pl.LightningModule):
 
     def forward(self, x):
         x, h = self.gru_stock
+        x = F.sigmoid(self.fc1(x))
+        x = F.linear(self.fc2(x))
         return x
 
     def training_step(self, batch, batch_idx):
         # training_step defined the train loop.
         # It is independent of forward
         x, y = batch
-        x = x.view(x.size(0), -1)
-        z = self.encoder(x)
-        x_hat = self.decoder(z)
-        loss = F.mse_loss(x_hat, x)
+        x, h = self.gru_stock
+        x = F.sigmoid(self.fc1(x))
+        y_hat = F.linear(self.fc2(x))
+        loss = F.mse_loss(y_hat, x)
         # Logging to TensorBoard by default
         self.log('train_loss', loss)
         return loss
