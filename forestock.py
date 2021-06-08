@@ -4,12 +4,56 @@ import pandas as pd
 import torchmetrics
 import pytorch_lightning as pl
 
+from typing import Tuple
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
 
 from utils import EMA, SMA, BBANDS
 
+
+class TickerDataModule(pl.LightningDataModule):
+    def __init__(self):
+        super().__init__()
+        self.h_steps = 50
+
+    def prepare_data(self) -> None:
+        df = pd.read_csv("data/ADAUSDT.csv")
+
+        # Set index to datetime
+        df = df.set_index("Date")
+        df.index = pd.to_datetime(df.index, format="%Y-%m-%d %H:%M:%S")
+        df = df.drop(["Close_time", "Quote_av", "Trades", "Tb_base_av", "Tb_quote_av", "Ignore"], axis=1)
+
+        df["PCT"] = df.Close.pct_change()
+        df["EMA"] = df.Close.ewm(span=12, adjust=False).mean()
+        self.df = pd.concat([df, BBANDS(df.Close)], axis=1)
+
+    def setup(self, stage=None):
+        scaler = MinMaxScaler()
+        data_norm = scaler.fit_transform(self.df)
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+
+    def series_data(self, data: np.array) -> Tuple[np.array, np.array, np.array, np.array]:
+        size = len(self.df) - self.h_steps
+
+        # Inputs
+        stock = torch.tensor([data[:, :6][i: i + self.h_steps] for i in range(size)])
+        # torch.tensor([n[..., i: i + 3] for i in range(7)]).view(2, -1, 3)
+        ema = np.array([data[:, 6:8][i + self.h_steps].copy()
+                                        for i in range(size)])
+        bb = np.array([data[8:][i + self.h_steps].copy()
+                                        for i in range(size)])
+
+        # Target
+        trg = np.array([data[0][i + self.h_steps].copy()
+                                        for i in range(ln)])
+        trg = np.expand_dims(trg, -1)
+
+        return stock, ema, bb, trg
 
 class LitForestock(pl.LightningModule):
     H_STEPS = 50
@@ -25,50 +69,18 @@ class LitForestock(pl.LightningModule):
         self.fc1 = torch.nn.Linear()
         self.fc2 = torch.nn.Linear(32, 1)
 
-    def prepare_data(self):
-        df = pd.read_csv("data/ADAUSDT.csv")
-
-        # Set index to datetime
-        df = df.set_index("Date")
-        df.index = pd.to_datetime(df.index, format="%Y-%m-%d %H:%M:%S")
-        self.df = df.drop(["Close_time", "Quote_av", "Trades", "Tb_base_av", "Tb_quote_av", "Ignore"], axis=1)
-
-        self.df["PCT"] = self.df.Close.pct_change()
-        self.df["EMA"] = self.df.Close.ewm(span=12, adjust=False).mean()
-        self.df = pd.concat([self.df, BBANDS(self.df.Close)], axis=1)
-
-    def setup(self, stage=None):
-        # Scale the all the data
-        scaler = MinMaxScaler()
-        d_norm = scaler.fit_transform(self.df)
-        steps = len(self.df) - self.H_STEPS
-
-        self.stock_h = np.array([d_norm[:, :6][i + self.H_STEPS].copy()
-                                        for i in range(steps)])
-        # self.ema_h = np.array([d_norm[:, 6:8][i + self.H_STEPS].copy()
-        #                                 for i in range(steps)])
-        # self.bb_h = np.array([d_norm[8:][i + self.H_STEPS].copy()
-        #                                 for i in range(steps)])
-
-        # Target
-        tr_h = np.array([d_norm[0][i + self.H_STEPS].copy()
-                                        for i in range(steps)])
-        self.tr_h = np.expand_dims(tr_h, -1)
-
     def forward(self, x):
         x, h = self.gru_stock
         x = F.sigmoid(self.fc1(x))
         x = F.linear(self.fc2(x))
         return x
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch):
         # training_step defined the train loop.
         # It is independent of forward
         x, y = batch
-        x, h = self.gru_stock
-        x = F.sigmoid(self.fc1(x))
-        y_hat = F.linear(self.fc2(x))
-        loss = F.mse_loss(y_hat, x)
+        y_hat = self(x)
+        loss = F.mse_loss(y_hat, y)
         # Logging to TensorBoard by default
         self.log('train_loss', loss)
         return loss
