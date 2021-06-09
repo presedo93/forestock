@@ -16,7 +16,8 @@ from utils import EMA, SMA, BBANDS
 class TickerDataModule(pl.LightningDataModule):
     def __init__(self):
         super().__init__()
-        self.h_steps = 50
+        self.window = 50
+        self.steps = 1
 
     def prepare_data(self) -> None:
         df = pd.read_csv("data/ADAUSDT.csv")
@@ -37,23 +38,12 @@ class TickerDataModule(pl.LightningDataModule):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
 
-    def series_data(self, data: np.array) -> Tuple[np.array, np.array, np.array, np.array]:
-        size = len(self.df) - self.h_steps
+    def series_data(self, data: np.array) -> Tuple[torch.tensor, torch.tensor]:
 
-        # Inputs
-        stock = torch.tensor([data[:, :6][i: i + self.h_steps] for i in range(size)])
-        # torch.tensor([n[..., i: i + 3] for i in range(7)]).view(2, -1, 3)
-        ema = np.array([data[:, 6:8][i + self.h_steps].copy()
-                                        for i in range(size)])
-        bb = np.array([data[8:][i + self.h_steps].copy()
-                                        for i in range(size)])
+        x = torch.tensor(data).unfold(1, self.window, self.steps)
+        y = torch.tensor(data[0]).unfold(0, 1, 1)[self.window:]
 
-        # Target
-        trg = np.array([data[0][i + self.h_steps].copy()
-                                        for i in range(ln)])
-        trg = np.expand_dims(trg, -1)
-
-        return stock, ema, bb, trg
+        return x, y
 
 class LitForestock(pl.LightningModule):
     H_STEPS = 50
