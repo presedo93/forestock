@@ -4,23 +4,25 @@ import pandas as pd
 import torchmetrics
 import pytorch_lightning as pl
 
-from typing import Tuple
+from typing import Tuple, Optional
 from torch.nn import functional as F
-from torch.utils.data import DataLoader
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, random_split
 
 from utils import EMA, SMA, BBANDS
 
 
 class TickerDataModule(pl.LightningDataModule):
-    def __init__(self):
+    def __init__(self, data_dir: str, batch_size: int = 16):
         super().__init__()
         self.window = 50
         self.steps = 1
 
+        self.batch_size = batch_size
+        self.data_dir = data_dir
+
     def prepare_data(self) -> None:
-        df = pd.read_csv("data/ADAUSDT.csv")
+        df = pd.read_csv(self.data_dir)
 
         # Set index to datetime
         df = df.set_index("Date")
@@ -29,21 +31,41 @@ class TickerDataModule(pl.LightningDataModule):
 
         df["PCT"] = df.Close.pct_change()
         df["EMA"] = df.Close.ewm(span=12, adjust=False).mean()
-        self.df = pd.concat([df, BBANDS(df.Close)], axis=1)
+        df = pd.concat([df, BBANDS(df.Close)], axis=1)
 
-    def setup(self, stage=None):
         scaler = MinMaxScaler()
-        data_norm = scaler.fit_transform(self.df)
+        self.df_sc = scaler.fit_transform(df)
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+    def setup(self, stage: Optional[str] = None) -> None:
+        ticker_full = self.window_series(self.df_sc)
 
+        train_size = int(0.8 * len(ticker_full[1]))
+        test_size = len(ticker_full) - train_size
+        train_dataset, self.ticker_test = random_split(ticker_full, [train_size, test_size])
 
-    def series_data(self, data: np.array) -> Tuple[torch.tensor, torch.tensor]:
+        train_size = int(0.7 * len(train_dataset))
+        val_size = len(train_dataset) - train_size
+        self.ticker_train, self.ticker_val = random_split(train_dataset, [train_size, val_size])
 
-        x = torch.tensor(data).unfold(1, self.window, self.steps)
-        y = torch.tensor(data[0]).unfold(0, 1, 1)[self.window:]
+        tmp = 2
 
-        return x, y
+    def train_dataloader(self):
+        return DataLoader(self.ticker_train, batch_size=self.batch_size)
+
+    def val_dataloader(self):
+        return DataLoader(self.ticker_val, batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.ticker_test, batch_size=self.batch_size)
+
+    def window_series(self, data: np.array) -> Tuple[torch.tensor, torch.tensor]:
+        x = torch.tensor(data)
+        x = x.unfold(0, self.window, self.steps).reshape(-1, self.window, x.shape[1])
+
+        y = torch.tensor(data[..., 3])
+        y = y.unsqueeze(0).reshape(-1, 1)[self.window - 1:]
+
+        return (x, y)
 
 class LitForestock(pl.LightningModule):
     H_STEPS = 50
@@ -53,10 +75,10 @@ class LitForestock(pl.LightningModule):
         self.gru_stock = torch.nn.Sequential(
             torch.nn.Conv1d(50, 32, 7),
             torch.nn.MaxPool1d(3, stride=2),
-            torch.nn.GRU(hidden_size=50, num_layers=2, bidirectional=True)
+            torch.nn.GRU(input_size=32, hidden_size=50, num_layers=2, bidirectional=True)
         )
 
-        self.fc1 = torch.nn.Linear()
+        self.fc1 = torch.nn.Linear(50, 32)
         self.fc2 = torch.nn.Linear(32, 1)
 
     def forward(self, x):
@@ -81,16 +103,12 @@ class LitForestock(pl.LightningModule):
 
 
 def train():
-    dataset = None
-    train_loader = DataLoader(dataset, num_workers=4)
-
     # init model
+    ticker = TickerDataModule("data/ADAUSDT.csv")
     forestock = LitForestock()
-
-    # most basic trainer, uses good defaults (auto-tensorboard, checkpoints, logs, and more)
-    # trainer = pl.Trainer(gpus=8) (if you have GPUs)
     trainer = pl.Trainer(fast_dev_run=True)
-    trainer.fit(forestock, train_loader)
+
+    trainer.fit(forestock, ticker)
 
 
 if __name__ == '__main__':
