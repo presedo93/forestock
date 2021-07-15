@@ -4,10 +4,10 @@ import pandas as pd
 import torchmetrics
 import pytorch_lightning as pl
 
-from typing import Tuple, Optional
+from typing import Optional
 from torch.nn import functional as F
 from sklearn.preprocessing import MinMaxScaler
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
 
 from utils import EMA, SMA, BBANDS
 
@@ -29,6 +29,7 @@ class TickerDataModule(pl.LightningDataModule):
         df.index = pd.to_datetime(df.index, format="%Y-%m-%d %H:%M:%S")
         df = df.drop(["Close_time", "Quote_av", "Trades", "Tb_base_av", "Tb_quote_av", "Ignore"], axis=1)
 
+        # Add the percentage change, an exponential ma and Bollinger Bands
         df["PCT"] = df.Close.pct_change()
         df["EMA"] = df.Close.ewm(span=12, adjust=False).mean()
         df = pd.concat([df, BBANDS(df.Close)], axis=1)
@@ -39,15 +40,13 @@ class TickerDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
         ticker_full = self.window_series(self.df_sc)
 
-        train_size = int(0.8 * len(ticker_full[1]))
-        test_size = len(ticker_full) - train_size
-        train_dataset, self.ticker_test = random_split(ticker_full, [train_size, test_size])
+        test_size = int(len(ticker_full) * 0.8)
+        self.ticker_test = Subset(ticker_full, range(test_size, len(ticker_full)))
+        train_set = Subset(ticker_full, range(0, test_size))
 
-        train_size = int(0.7 * len(train_dataset))
-        val_size = len(train_dataset) - train_size
-        self.ticker_train, self.ticker_val = random_split(train_dataset, [train_size, val_size])
-
-        tmp = 2
+        train_size = int(0.9 * len(train_set))
+        val_size = len(train_set) - train_size
+        self.ticker_train, self.ticker_val = random_split(train_set, [train_size, val_size])
 
     def train_dataloader(self):
         return DataLoader(self.ticker_train, batch_size=self.batch_size)
@@ -58,36 +57,37 @@ class TickerDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         return DataLoader(self.ticker_test, batch_size=self.batch_size)
 
-    def window_series(self, data: np.array) -> Tuple[torch.tensor, torch.tensor]:
-        x = torch.tensor(data)
-        x = x.unfold(0, self.window, self.steps).reshape(-1, self.window, x.shape[1])
+    def window_series(self, data: np.array) -> TensorDataset:
+        x = torch.tensor(data, dtype=torch.float)
+        x = x.unfold(0, self.window, self.steps).transpose(1, 2)[:-1]
 
-        y = torch.tensor(data[..., 3])
-        y = y.unsqueeze(0).reshape(-1, 1)[self.window - 1:]
+        y = torch.tensor(data[..., 3], dtype=torch.float)
+        y = y.unsqueeze(0).T[self.window:]
 
-        return (x, y)
+        return TensorDataset(x, y)
+
 
 class LitForestock(pl.LightningModule):
     H_STEPS = 50
 
     def __init__(self):
         super().__init__()
-        self.gru_stock = torch.nn.Sequential(
-            torch.nn.Conv1d(50, 32, 7),
-            torch.nn.MaxPool1d(3, stride=2),
-            torch.nn.GRU(input_size=32, hidden_size=50, num_layers=2, bidirectional=True)
+        self.ohlc = torch.nn.Sequential(
+            torch.nn.Conv1d(50, 128, 3),
+            torch.nn.MaxPool1d(3, stride=1),
+            torch.nn.GRU(input_size=6, hidden_size=50, num_layers=2, bidirectional=True, batch_first=True)
         )
 
-        self.fc1 = torch.nn.Linear(50, 32)
+        self.fc1 = torch.nn.Linear(100, 32)
         self.fc2 = torch.nn.Linear(32, 1)
 
     def forward(self, x):
-        x, h = self.gru_stock
-        x = F.sigmoid(self.fc1(x))
-        x = F.linear(self.fc2(x))
+        x, _ = self.ohlc(x)
+        x = torch.sigmoid(self.fc1(x))
+        x = self.fc2(x)
         return x
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_idx):
         # training_step defined the train loop.
         # It is independent of forward
         x, y = batch
@@ -95,11 +95,11 @@ class LitForestock(pl.LightningModule):
         loss = F.mse_loss(y_hat, y)
         # Logging to TensorBoard by default
         self.log('train_loss', loss)
+        
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+        return torch.optim.Adam(self.parameters(), lr=1e-3)
 
 
 def train():
