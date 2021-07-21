@@ -1,9 +1,7 @@
 import pandas as pd
 
 
-def SMA(
-    series: pd.Series, periods: int = 9, fillna: bool = False
-) -> pd.Series:
+def SMA(series: pd.Series, periods: int = 9, fillna: bool = False) -> pd.Series:
     """
     Simple Moving Average (EMA).
     Rolling mean in pandas lingo. Also known as 'MA'.
@@ -13,9 +11,7 @@ def SMA(
     return series.rolling(window=periods, min_periods=min_periods).mean()
 
 
-def EMA(
-    series: pd.Series, periods: int = 9, fillna: bool = False
-) -> pd.Series:
+def EMA(series: pd.Series, periods: int = 9, fillna: bool = False) -> pd.Series:
     """
     Exponential Moving Average (EMA).
     Like all moving average indicators, they are much better suited for trending markets.

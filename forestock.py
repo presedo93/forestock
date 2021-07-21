@@ -7,6 +7,8 @@ import pytorch_lightning as pl
 from typing import Optional
 from torch.nn import functional as F
 from sklearn.preprocessing import MinMaxScaler
+from pytorch_lightning import loggers as pl_loggers
+from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
 
 from utils import EMA, SMA, BBANDS
@@ -27,7 +29,10 @@ class TickerDataModule(pl.LightningDataModule):
         # Set index to datetime
         df = df.set_index("Date")
         df.index = pd.to_datetime(df.index, format="%Y-%m-%d %H:%M:%S")
-        df = df.drop(["Close_time", "Quote_av", "Trades", "Tb_base_av", "Tb_quote_av", "Ignore"], axis=1)
+        df = df.drop(
+            ["Close_time", "Quote_av", "Trades", "Tb_base_av", "Tb_quote_av", "Ignore"],
+            axis=1,
+        )
 
         # Add the percentage change, an exponential ma and Bollinger Bands
         # df["PCT"] = df.Close.pct_change()
@@ -46,23 +51,25 @@ class TickerDataModule(pl.LightningDataModule):
 
         train_size = int(0.9 * len(train_set))
         val_size = len(train_set) - train_size
-        self.ticker_train, self.ticker_val = random_split(train_set, [train_size, val_size])
+        self.ticker_train, self.ticker_val = random_split(
+            train_set, [train_size, val_size]
+        )
 
     def train_dataloader(self):
-        return DataLoader(self.ticker_train, batch_size=self.batch_size)
+        return DataLoader(self.ticker_train, batch_size=self.batch_size, num_workers=4)
 
     def val_dataloader(self):
-        return DataLoader(self.ticker_val, batch_size=self.batch_size)
+        return DataLoader(self.ticker_val, batch_size=self.batch_size, num_workers=4)
 
     def test_dataloader(self):
-        return DataLoader(self.ticker_test, batch_size=self.batch_size)
+        return DataLoader(self.ticker_test, batch_size=self.batch_size, num_workers=4)
 
     def window_series(self, data: np.array) -> TensorDataset:
         x = torch.tensor(data, dtype=torch.float)
         x = x.unfold(0, self.window, self.steps)[:-1]
 
         y = torch.tensor(data[..., 3], dtype=torch.float)
-        y = y.unsqueeze(1)[self.window:]
+        y = y.unsqueeze(1)[self.window :]
 
         return TensorDataset(x, y)
 
@@ -70,10 +77,22 @@ class TickerDataModule(pl.LightningDataModule):
 class LitForestock(pl.LightningModule):
     def __init__(self):
         super().__init__()
+
+        # Pearson correlation coefficient
+        self.train_corr = torchmetrics.PearsonCorrcoef()
+        self.valid_corr = torchmetrics.PearsonCorrcoef()
+        self.test_corr = torchmetrics.PearsonCorrcoef()
+
         self.ohlc = torch.nn.Sequential(
             torch.nn.Conv1d(5, 128, 3),
             torch.nn.MaxPool1d(2, stride=2),
-            torch.nn.GRU(input_size=24, hidden_size=50, num_layers=2, bidirectional=True, batch_first=True)
+            torch.nn.GRU(
+                input_size=24,
+                hidden_size=50,
+                num_layers=2,
+                bidirectional=True,
+                batch_first=True,
+            ),
         )
 
         self.fc1 = torch.nn.Linear(100, 32)
@@ -90,8 +109,32 @@ class LitForestock(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
-        # Logging to TensorBoard by default
-        self.log('train_loss', loss)
+
+        self.train_corr(y_hat, y)
+        self.log("corr/train", self.train_corr)
+        self.log("loss/train", loss)
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = F.mse_loss(y_hat, y)
+
+        self.valid_corr(y_hat, y)
+        self.log("corr/valid", self.valid_corr)
+        self.log("loss/valid", loss)
+
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = F.mse_loss(y_hat, y)
+
+        self.test_corr(y_hat, y)
+        self.log("corr/test", self.test_corr)
+        self.log("loss/test", loss)
 
         return loss
 
@@ -103,10 +146,19 @@ def train():
     # init model
     ticker = TickerDataModule("data/ADAUSDT.csv")
     forestock = LitForestock()
-    trainer = pl.Trainer()
 
+    tb_logger = pl_loggers.TensorBoardLogger("logs/")
+    early_stopping = EarlyStopping("loss/valid")
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+
+    trainer = pl.Trainer(
+        gpus=1, logger=tb_logger, callbacks=[early_stopping, lr_monitor]
+    )
     trainer.fit(forestock, ticker)
 
+    # Doesn't work yet
+    # trainer.test(forestock, ticker)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     train()
