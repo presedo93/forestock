@@ -30,9 +30,9 @@ class TickerDataModule(pl.LightningDataModule):
         df = df.drop(["Close_time", "Quote_av", "Trades", "Tb_base_av", "Tb_quote_av", "Ignore"], axis=1)
 
         # Add the percentage change, an exponential ma and Bollinger Bands
-        df["PCT"] = df.Close.pct_change()
-        df["EMA"] = df.Close.ewm(span=12, adjust=False).mean()
-        df = pd.concat([df, BBANDS(df.Close)], axis=1)
+        # df["PCT"] = df.Close.pct_change()
+        # df["EMA"] = df.Close.ewm(span=12, adjust=False).mean()
+        # df = pd.concat([df, BBANDS(df.Close)], axis=1)
 
         scaler = MinMaxScaler()
         self.df_sc = scaler.fit_transform(df)
@@ -59,23 +59,21 @@ class TickerDataModule(pl.LightningDataModule):
 
     def window_series(self, data: np.array) -> TensorDataset:
         x = torch.tensor(data, dtype=torch.float)
-        x = x.unfold(0, self.window, self.steps).transpose(1, 2)[:-1]
+        x = x.unfold(0, self.window, self.steps)[:-1]
 
         y = torch.tensor(data[..., 3], dtype=torch.float)
-        y = y.unsqueeze(0).T[self.window:]
+        y = y.unsqueeze(1)[self.window:]
 
         return TensorDataset(x, y)
 
 
 class LitForestock(pl.LightningModule):
-    H_STEPS = 50
-
     def __init__(self):
         super().__init__()
         self.ohlc = torch.nn.Sequential(
-            torch.nn.Conv1d(50, 128, 3),
-            torch.nn.MaxPool1d(3, stride=1),
-            torch.nn.GRU(input_size=6, hidden_size=50, num_layers=2, bidirectional=True, batch_first=True)
+            torch.nn.Conv1d(5, 128, 3),
+            torch.nn.MaxPool1d(2, stride=2),
+            torch.nn.GRU(input_size=24, hidden_size=50, num_layers=2, bidirectional=True, batch_first=True)
         )
 
         self.fc1 = torch.nn.Linear(100, 32)
@@ -83,19 +81,18 @@ class LitForestock(pl.LightningModule):
 
     def forward(self, x):
         x, _ = self.ohlc(x)
+        x = torch.sigmoid(x[:, -1, :])
         x = torch.sigmoid(self.fc1(x))
         x = self.fc2(x)
         return x
 
     def training_step(self, batch, batch_idx):
-        # training_step defined the train loop.
-        # It is independent of forward
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
         # Logging to TensorBoard by default
         self.log('train_loss', loss)
-        
+
         return loss
 
     def configure_optimizers(self):
@@ -106,7 +103,7 @@ def train():
     # init model
     ticker = TickerDataModule("data/ADAUSDT.csv")
     forestock = LitForestock()
-    trainer = pl.Trainer(fast_dev_run=True)
+    trainer = pl.Trainer()
 
     trainer.fit(forestock, ticker)
 
