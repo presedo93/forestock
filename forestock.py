@@ -1,27 +1,38 @@
 import torch
+import argparse
 import numpy as np
 import pandas as pd
 import torchmetrics
 import pytorch_lightning as pl
 
-from typing import Optional
 from torch.nn import functional as F
 from sklearn.preprocessing import MinMaxScaler
+from typing import Any, Dict, List, Optional, Union
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
 
-from utils import EMA, SMA, BBANDS
+from utils import str2bool, EMA, SMA, BBANDS
 
 
 class TickerDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str, batch_size: int = 16):
+    def __init__(
+        self,
+        data_dir: str,
+        window: int,
+        steps: int,
+        workers: int = 4,
+        batch_size: int = 16,
+    ):
         super().__init__()
-        self.window = 50
-        self.steps = 1
+        self.data_dir = data_dir
+        self.window = window
+        self.steps = steps
 
         self.batch_size = batch_size
-        self.data_dir = data_dir
+        self.workers = workers
+
+        self.sc = MinMaxScaler()
 
     def prepare_data(self) -> None:
         df = pd.read_csv(self.data_dir)
@@ -39,10 +50,9 @@ class TickerDataModule(pl.LightningDataModule):
         # df["EMA"] = df.Close.ewm(span=12, adjust=False).mean()
         # df = pd.concat([df, BBANDS(df.Close)], axis=1)
 
-        scaler = MinMaxScaler()
-        self.df_sc = scaler.fit_transform(df)
+        self.df_sc = self.sc.fit_transform(df)
 
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: Optional[str]) -> None:
         ticker_full = self.window_series(self.df_sc)
 
         test_size = int(len(ticker_full) * 0.8)
@@ -55,14 +65,25 @@ class TickerDataModule(pl.LightningDataModule):
             train_set, [train_size, val_size]
         )
 
-    def train_dataloader(self):
-        return DataLoader(self.ticker_train, batch_size=self.batch_size, num_workers=4)
+    def train_dataloader(self) -> Union[DataLoader, List[DataLoader], Dict[str, DataLoader]]:
+        return DataLoader(
+            self.ticker_train, batch_size=self.batch_size, num_workers=self.workers
+        )
 
-    def val_dataloader(self):
-        return DataLoader(self.ticker_val, batch_size=self.batch_size, num_workers=4)
+    def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
+        return DataLoader(
+            self.ticker_val, batch_size=self.batch_size, num_workers=self.workers
+        )
 
-    def test_dataloader(self):
-        return DataLoader(self.ticker_test, batch_size=self.batch_size, num_workers=4)
+    def test_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
+        return DataLoader(
+            self.ticker_test, batch_size=self.batch_size, num_workers=self.workers
+        )
+
+    def predict_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
+        return DataLoader(
+            self.ticker_test, batch_size=self.batch_size, num_workers=self.workers
+        )
 
     def window_series(self, data: np.array) -> TensorDataset:
         x = torch.tensor(data, dtype=torch.float)
@@ -77,25 +98,21 @@ class TickerDataModule(pl.LightningDataModule):
 class LitForestock(pl.LightningModule):
     def __init__(self):
         super().__init__()
-
-        # Pearson correlation coefficient
-        self.train_corr = torchmetrics.PearsonCorrcoef()
-        self.valid_corr = torchmetrics.PearsonCorrcoef()
-        self.test_corr = torchmetrics.PearsonCorrcoef()
+        h_steps = 50
 
         self.ohlc = torch.nn.Sequential(
             torch.nn.Conv1d(5, 128, 3),
             torch.nn.MaxPool1d(2, stride=2),
             torch.nn.GRU(
-                input_size=24,
-                hidden_size=50,
+                input_size=int(h_steps / 2) - 1,
+                hidden_size=h_steps,
                 num_layers=2,
                 bidirectional=True,
                 batch_first=True,
             ),
         )
 
-        self.fc1 = torch.nn.Linear(100, 32)
+        self.fc1 = torch.nn.Linear(h_steps * 2, 32)
         self.fc2 = torch.nn.Linear(32, 1)
 
     def forward(self, x):
@@ -109,10 +126,7 @@ class LitForestock(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
-
-        self.train_corr(y_hat, y)
-        self.log("corr/train", self.train_corr)
-        self.log("loss/train", loss)
+        self.log("loss/train", loss, on_step=False, on_epoch=True)
 
         return loss
 
@@ -120,10 +134,7 @@ class LitForestock(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
-
-        self.valid_corr(y_hat, y)
-        self.log("corr/valid", self.valid_corr)
-        self.log("loss/valid", loss)
+        self.log("loss/valid", loss, on_step=False, on_epoch=True)
 
         return loss
 
@@ -131,34 +142,59 @@ class LitForestock(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
-
-        self.test_corr(y_hat, y)
-        self.log("corr/test", self.test_corr)
-        self.log("loss/test", loss)
+        self.log("loss", loss)
 
         return loss
 
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: Optional[int]) -> Any:
+        x, y = batch
+        y_hat = self(x)
+
+        return y, y_hat
+
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        scheduluer = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.1, patience=1
+        )
+        return {
+            "optimizer": optimizer,
+            "interval": "epoch",
+            "lr_scheduler": {"scheduler": scheduluer, "monitor": "loss/valid"},
+        }
 
 
-def train():
+def train(args: argparse.Namespace):
     # init model
-    ticker = TickerDataModule("data/ADAUSDT.csv")
+    ticker = TickerDataModule("data/ADAUSDT.csv", 50, 1)
     forestock = LitForestock()
 
-    tb_logger = pl_loggers.TensorBoardLogger("logs/")
+    tb_logger = pl_loggers.TensorBoardLogger("tb_logs/", name='FST', default_hp_metric=False)
     early_stopping = EarlyStopping("loss/valid")
-    lr_monitor = LearningRateMonitor(logging_interval="step")
+    lr_monitor = LearningRateMonitor(logging_interval="epoch")
 
     trainer = pl.Trainer(
         gpus=1, logger=tb_logger, callbacks=[early_stopping, lr_monitor]
     )
     trainer.fit(forestock, ticker)
 
-    # Doesn't work yet
-    # trainer.test(forestock, ticker)
+    trainer.test(forestock)
 
 
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-l",
+        "--load",
+        type=str2bool,
+        default="false",
+        help="Load weights given by --weights",
+    )
+    parser.add_argument(
+        "-w",
+        "--weights",
+        type=str,
+        help="Path to the weights to load",
+    )
+
+    train(parser.parse_args())
