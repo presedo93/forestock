@@ -1,20 +1,27 @@
 import torch
 import argparse
 import numpy as np
-import pandas as pd
-import torchmetrics
 import pytorch_lightning as pl
 
 import matplotlib.pyplot as plt
-from forestock import LitForestock, TickerDataModule
+from forestock import LitForestock
+from data.ticker import TickerDataModule
 
-from utils import str2bool
 
+def test(
+    args: argparse.Namespace,
+    model: pl.LightningModule = None,
+    datamodule: pl.LightningDataModule = None,
+):
+    if args is not None:
+        ticker = TickerDataModule(args.data, 50, 1)
+        forestock = LitForestock.load_from_checkpoint(args.weights)
 
-def test(args: argparse.Namespace):
-    # init model
-    ticker = TickerDataModule("data/ADAUSDT.csv", 50, 1)
-    forestock = LitForestock.load_from_checkpoint("tb_logs/FST/version_0/checkpoints/epoch=10-step=42470.ckpt")
+    if datamodule is not None:
+        ticker = datamodule
+
+    if model is not None:
+        forestock = model
 
     trainer = pl.Trainer(gpus=1)
     predicts = trainer.predict(forestock, datamodule=ticker)
@@ -32,29 +39,18 @@ def test(args: argparse.Namespace):
 
     r_mse = np.mean(np.square(y_hat - y))
     s_mse = r_mse / (np.max(y_hat) - np.min(y_hat)) * 100
-    print(f'\033[1;32mScaled MSE: {round(s_mse, 2)}\033[0m')
+    print(f"\033[1;32mScaled MSE: {round(s_mse, 2)}\033[0m")
 
     plt.gcf().set_size_inches(16, 12, forward=True)
-    plt.plot(y_hat[:-1], label='real')
-    plt.plot(y[:-1], label='predicted')
+    plt.plot(y_hat[:-1], label="real")
+    plt.plot(y[:-1], label="predicted")
 
     plt.savefig("test.png")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-l",
-        "--load",
-        type=str2bool,
-        default="false",
-        help="Load weights given by --weights",
-    )
-    parser.add_argument(
-        "-w",
-        "--weights",
-        type=str,
-        help="Path to the weights to load",
-    )
+    parser.add_argument("-d", "--data", type=str, help="Path to the data")
+    parser.add_argument("-w", "--weights", type=str, help="Path to the weights to load")
 
     test(parser.parse_args())
