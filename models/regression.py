@@ -6,10 +6,9 @@ from typing import Any, Optional
 from torch.nn import functional as F
 
 
-class LitForestock(pl.LightningModule):
-    def __init__(self):
+class LitForestockReg(pl.LightningModule):
+    def __init__(self, h_steps: int = 50):
         super().__init__()
-        h_steps = 50
 
         self.ohlc = torch.nn.Sequential(
             torch.nn.Conv1d(5, 128, 3),
@@ -23,16 +22,30 @@ class LitForestock(pl.LightningModule):
             ),
         )
 
-        self.fc1 = torch.nn.Linear(h_steps * 2, 32)
-        self.fc2 = torch.nn.Linear(32, 1)
+        self.bbands = torch.nn.Sequential(
+            torch.nn.Conv1d(3, 128, 2),
+            torch.nn.MaxPool1d(2, stride=2),
+            torch.nn.GRU(
+                input_size=int(h_steps / 2) - 1,
+                hidden_size=h_steps,
+                num_layers=1,
+                bidirectional=True,
+                batch_first=True
+            ),
+        )
+
+        self.fc1 = torch.nn.Linear(h_steps * 4, 128)
+        self.fc2 = torch.nn.Linear(128, 64)
+        self.fc3 = torch.nn.Linear(64, 1)
 
     def forward(self, x):
-        x, _ = self.ohlc(x)
-        # x = torch.sigmoid(x[:, -1, :])
-        x = x[:, -1, :]
-        x = torch.sigmoid(self.fc1(x))
-        x = self.fc2(x)
-        return x
+        out_ohlc, _ = self.ohlc(x[:, :5])
+        out_bb, _ = self.bbands(x[:, 5:])
+        y = torch.cat([out_ohlc[:, -1], out_bb[:, -1]], dim=1)
+        y = torch.sigmoid(self.fc1(y))
+        y = torch.sigmoid(self.fc2(y))
+        y = self.fc3(y)
+        return y
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -69,7 +82,7 @@ class LitForestock(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         scheduluer = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.1, patience=1
+            optimizer, mode="min", factor=0.1, patience=0
         )
         return {
             "optimizer": optimizer,

@@ -9,17 +9,17 @@ from data.ticker import TickerDataModule
 
 
 def train(args: argparse.Namespace):
-    ticker = TickerDataModule(args.data, 50, 1)
-    forestock = LitForestock()
+    ticker = TickerDataModule(args.data, 24, 1)
+    forestock = LitForestock(24)
 
     tb_logger = pl_loggers.TensorBoardLogger(
         "tb_logs/", name="FST", default_hp_metric=False
     )
-    early_stopping = EarlyStopping("loss/valid")
+    early_stopping = EarlyStopping("loss/valid", min_delta=1e-7)
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
 
     trainer = pl.Trainer(
-        gpus=1, logger=tb_logger, callbacks=[early_stopping, lr_monitor]
+        gpus=1, logger=tb_logger, max_epochs=20, callbacks=[early_stopping, lr_monitor]
     )
 
     trainer.fit(forestock, ticker)

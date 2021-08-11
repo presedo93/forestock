@@ -40,10 +40,9 @@ class TickerDataModule(pl.LightningDataModule):
             axis=1,
         )
 
-        # Add the percentage change, an exponential ma and Bollinger Bands
-        # df["PCT"] = df.Close.pct_change()
-        # df["EMA"] = df.Close.ewm(span=12, adjust=False).mean()
-        # df = pd.concat([df, BBANDS(df.Close)], axis=1)
+        # Add Bollinger Bands
+        bbands = BBANDS(df.Close).fillna(0)
+        df = pd.concat([df, bbands], axis=1)
 
         self.df_sc = self.sc.fit_transform(df)
 
@@ -54,7 +53,7 @@ class TickerDataModule(pl.LightningDataModule):
         self.ticker_test = Subset(ticker_full, range(test_size, len(ticker_full)))
         train_set = Subset(ticker_full, range(0, test_size))
 
-        train_size = int(0.9 * len(train_set))
+        train_size = int(0.8 * len(train_set))
         val_size = len(train_set) - train_size
         self.ticker_train, self.ticker_val = random_split(
             train_set, [train_size, val_size]

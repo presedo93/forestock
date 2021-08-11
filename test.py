@@ -4,8 +4,8 @@ import numpy as np
 import pytorch_lightning as pl
 
 import matplotlib.pyplot as plt
-from forestock import LitForestock
-from data.ticker import TickerDataModule
+from models.regression import LitForestockReg
+from datasets.ticker import TickerDataModule
 
 
 def test(
@@ -15,7 +15,7 @@ def test(
 ):
     if args is not None:
         ticker = TickerDataModule(args.data, 50, 1)
-        forestock = LitForestock.load_from_checkpoint(args.weights)
+        forestock = LitForestockReg.load_from_checkpoint(args.weights, h_steps=50)
 
     if datamodule is not None:
         ticker = datamodule
