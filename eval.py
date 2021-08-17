@@ -2,28 +2,19 @@ import torch
 import argparse
 import numpy as np
 import pytorch_lightning as pl
-
 import matplotlib.pyplot as plt
+
 from models.regression import LitForestockReg
 from datasets.ticker import TickerDataModule
 
+# def process_reg()
 
-def test(
-    args: argparse.Namespace,
-    model: pl.LightningModule = None,
-    datamodule: pl.LightningDataModule = None,
-):
-    if args is not None:
-        ticker = TickerDataModule(args.data, 50, 1)
-        forestock = LitForestockReg.load_from_checkpoint(args.weights, h_steps=50)
 
-    if datamodule is not None:
-        ticker = datamodule
+def test(args: argparse.Namespace) -> None:
+    ticker = TickerDataModule(args.data, 50, 1)
+    forestock = LitForestockReg.load_from_checkpoint(args.weights, h_steps=50)
 
-    if model is not None:
-        forestock = model
-
-    trainer = pl.Trainer(gpus=1)
+    trainer = pl.Trainer.from_argparse_args(args)
     predicts = trainer.predict(forestock, datamodule=ticker)
 
     # predicts is a list of tuples of tensors...
@@ -50,7 +41,8 @@ def test(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--data", type=str, help="Path to the data")
-    parser.add_argument("-w", "--weights", type=str, help="Path to the weights to load")
+    parser.add_argument("--data", type=str, help="Path to the data")
+    parser.add_argument("--weights", type=str, help="Path to the weights to load")
+    args = parser.parse_args()
 
-    test(parser.parse_args())
+    test(args)
