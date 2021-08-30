@@ -1,8 +1,7 @@
 import torch
-import torchmetrics
 import pytorch_lightning as pl
 
-from typing import Any, Optional
+from typing import Any
 from torch.nn import functional as F
 
 
@@ -30,7 +29,7 @@ class LitForestockReg(pl.LightningModule):
                 hidden_size=h_steps,
                 num_layers=1,
                 bidirectional=True,
-                batch_first=True
+                batch_first=True,
             ),
         )
 
@@ -47,7 +46,7 @@ class LitForestockReg(pl.LightningModule):
         y = self.fc3(y)
         return y
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch):
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
@@ -55,7 +54,7 @@ class LitForestockReg(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch):
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
@@ -63,17 +62,15 @@ class LitForestockReg(pl.LightningModule):
 
         return loss
 
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch):
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
-        self.log("loss", loss)
+        self.log("loss/test", loss, on_step=False, on_epoch=True)
 
         return loss
 
-    def predict_step(
-        self, batch: Any, batch_idx: int, dataloader_idx: Optional[int]
-    ) -> Any:
+    def predict_step(self, batch: Any) -> Any:
         x, y = batch
         y_hat = self(x)
 
