@@ -9,11 +9,13 @@ from datasets.ticker import TickerDataModule
 
 
 def train(args: argparse.Namespace):
-    ticker = TickerDataModule(args.data, 50, 1)
-    forestock = LitForestockReg(50)
+    ticker = TickerDataModule(
+        args.ticker, args.interval, args.period, args.window, args.steps
+    )
+    forestock = LitForestockReg(args.window)
 
     tb_logger = pl_loggers.TensorBoardLogger(
-        "tb_logs/", name="FST", default_hp_metric=False
+        "tb_logs/", name=args.ticker, default_hp_metric=False
     )
     early_stopping = EarlyStopping("loss/valid", min_delta=1e-7)
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
@@ -21,24 +23,28 @@ def train(args: argparse.Namespace):
     trainer = pl.Trainer.from_argparse_args(
         args,
         logger=tb_logger,
-        profiler="pytorch",
         callbacks=[early_stopping, lr_monitor],
     )
-    # trainer = pl.Trainer(
-    #     gpus=1, logger=tb_logger, max_epochs=20, profiler="pytorch", callbacks=[early_stopping, lr_monitor]
-    # )
 
-    # TODO: Take a look on this part and put in the README the line to train (with --gpus 1 --max_epochs 20)
     trainer.fit(forestock, ticker)
     trainer.test(forestock)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("-t", "--ticker", type=str, help="Ticker name")
+    parser.add_argument("-i", "--interval", type=str, help="Interval of time")
     parser.add_argument(
-        "-s", "--steps", type=int, default=50, help="Num. of days to process"
+        "-p", "--period", type=str, default="max", help="Num of ticks to fetch"
     )
-    # parser.add_argument("-d", "--data", type=str, help="Path to the data")
-    # parser.add_argument("-w", "--weights", type=str, help="Path to the weights to load")
+    parser.add_argument(
+        "-w", "--window", type=int, default=50, help="Num. of days to look back"
+    )
+    parser.add_argument(
+        "-s", "--steps", type=int, default=1, help="Num. of days to look ahead"
+    )
+
+    # Enable pytorch lightning trainer arguments from cli
+    parser = pl.Trainer.add_argparse_args(parser)
 
     train(parser.parse_args())

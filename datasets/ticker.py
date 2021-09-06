@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import pandas as pd
+import yfinance as yf
 import pytorch_lightning as pl
 
 from sklearn.preprocessing import MinMaxScaler
@@ -13,37 +14,45 @@ from utils import BBANDS
 class TickerDataModule(pl.LightningDataModule):
     def __init__(
         self,
-        data_dir: str,
+        ticker: str,
+        interval: str,
+        period: str,
         window: int,
         steps: int,
         workers: int = 4,
         batch_size: int = 16,
     ):
         super().__init__()
-        self.data_dir = data_dir
+        # Data fetch parameters.
+        self.ticker = ticker
+        self.interval = interval
+        self.period = period
+
+        # Model size parameters.
         self.window = window
         self.steps = steps
 
+        # Train/test stage parameters.
         self.batch_size = batch_size
         self.workers = workers
 
         self.sc = MinMaxScaler()
 
     def prepare_data(self) -> None:
-        df = pd.read_csv(self.data_dir)
+        # Fetch the data
+        df = yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
+
+        # And discard everything except Open High Low Close and Volume
+        df = df[df.columns[:5]]
 
         # Set index to datetime
-        df = df.set_index("Date")
         df.index = pd.to_datetime(df.index, format="%Y-%m-%d %H:%M:%S")
-        df = df.drop(
-            ["Close_time", "Quote_av", "Trades", "Tb_base_av", "Tb_quote_av", "Ignore"],
-            axis=1,
-        )
 
         # Add Bollinger Bands
         bbands = BBANDS(df.Close).fillna(0)
         df = pd.concat([df, bbands], axis=1)
 
+        # Normalize the data
         self.df_sc = self.sc.fit_transform(df)
 
     def setup(self, stage: Optional[str]) -> None:

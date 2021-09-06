@@ -1,5 +1,7 @@
 # Train
+An example of the command to start the training process:
 
+    python -m train --ticker SPY --interval 1h --period 1y --gpus 1 --max_epochs 12
 
 # Test
 Command to launch the :

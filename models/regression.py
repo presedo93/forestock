@@ -1,7 +1,7 @@
 import torch
 import pytorch_lightning as pl
 
-from typing import Any
+from typing import Any, Dict, Optional
 from torch.nn import functional as F
 
 
@@ -37,16 +37,17 @@ class LitForestockReg(pl.LightningModule):
         self.fc2 = torch.nn.Linear(128, 64)
         self.fc3 = torch.nn.Linear(64, 1)
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         out_ohlc, _ = self.ohlc(x[:, :5])
         out_bb, _ = self.bbands(x[:, 5:])
         y = torch.cat([out_ohlc[:, -1], out_bb[:, -1]], dim=1)
         y = torch.sigmoid(self.fc1(y))
         y = torch.sigmoid(self.fc2(y))
         y = self.fc3(y)
+
         return y
 
-    def training_step(self, batch):
+    def training_step(self, batch: Any, batch_idx: int) -> Any:
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
@@ -54,7 +55,7 @@ class LitForestockReg(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch):
+    def validation_step(self, batch: Any, batch_idx: int) -> Any:
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
@@ -62,7 +63,7 @@ class LitForestockReg(pl.LightningModule):
 
         return loss
 
-    def test_step(self, batch):
+    def test_step(self, batch: Any, batch_idx: int) -> Any:
         x, y = batch
         y_hat = self(x)
         loss = F.mse_loss(y_hat, y)
@@ -70,16 +71,18 @@ class LitForestockReg(pl.LightningModule):
 
         return loss
 
-    def predict_step(self, batch: Any) -> Any:
+    def predict_step(
+        self, batch: Any, batch_idx: int, dataloader_idx: Optional[int]
+    ) -> Any:
         x, y = batch
         y_hat = self(x)
 
         return y, y_hat
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> Dict:
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         scheduluer = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.1, patience=0
+            optimizer, mode="min", factor=0.1, patience=1
         )
         return {
             "optimizer": optimizer,
