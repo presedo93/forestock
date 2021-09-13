@@ -6,15 +6,16 @@ from torch.nn import functional as F
 
 
 class LitForestockReg(pl.LightningModule):
-    def __init__(self, h_steps: int = 50):
+    def __init__(self, h_window: int = 50, h_steps: int = 1):
         super().__init__()
+        self.save_hyperparameters()
 
         self.ohlc = torch.nn.Sequential(
             torch.nn.Conv1d(5, 128, 3),
             torch.nn.MaxPool1d(2, stride=2),
             torch.nn.GRU(
-                input_size=int(h_steps / 2) - 1,
-                hidden_size=h_steps,
+                input_size=int(h_window/ 2) - 1,
+                hidden_size=h_window,
                 num_layers=2,
                 bidirectional=True,
                 batch_first=True,
@@ -25,17 +26,17 @@ class LitForestockReg(pl.LightningModule):
             torch.nn.Conv1d(3, 128, 2),
             torch.nn.MaxPool1d(2, stride=2),
             torch.nn.GRU(
-                input_size=int(h_steps / 2) - 1,
-                hidden_size=h_steps,
+                input_size=int(h_window/ 2) - 1,
+                hidden_size=h_window,
                 num_layers=1,
                 bidirectional=True,
                 batch_first=True,
             ),
         )
 
-        self.fc1 = torch.nn.Linear(h_steps * 4, 128)
+        self.fc1 = torch.nn.Linear(h_window * 4, 128)
         self.fc2 = torch.nn.Linear(128, 64)
-        self.fc3 = torch.nn.Linear(64, 1)
+        self.fc3 = torch.nn.Linear(64, h_steps)
 
     def forward(self, x) -> torch.Tensor:
         out_ohlc, _ = self.ohlc(x[:, :5])
@@ -72,7 +73,7 @@ class LitForestockReg(pl.LightningModule):
         return loss
 
     def predict_step(
-        self, batch: Any, batch_idx: int, dataloader_idx: Optional[int]
+        self, batch: Any, batch_idx: int, dataloader_idx: Optional[int] = None
     ) -> Any:
         x, y = batch
         y_hat = self(x)
