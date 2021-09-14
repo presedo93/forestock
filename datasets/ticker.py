@@ -95,9 +95,8 @@ class TickerDataModule(pl.LightningDataModule):
     @staticmethod
     def window_series(data: np.array, window: int, steps: int) -> TensorDataset:
         x = torch.tensor(data, dtype=torch.float)
-        x = x.unfold(0, window, steps)[:-steps]
+        x = x.unfold(0, window, 1)[:-steps]
 
-        y = torch.tensor(data[..., 3], dtype=torch.float)
-        y = y.unsqueeze(1)[window::steps]
+        y = torch.tensor(data[..., 3], dtype=torch.float).unsqueeze(1)
 
         return TensorDataset(x, y)

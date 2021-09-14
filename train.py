@@ -13,10 +13,10 @@ def train(args: argparse.Namespace):
     ticker = TickerDataModule(
         args.ticker, args.interval, args.period, args.window, args.steps
     )
-    forestock = LitForestockReg(args.window)
+    forestock = LitForestockReg(args.window, args.steps)
 
     tb_logger = pl_loggers.TensorBoardLogger(
-        "tb_logs/", name=args.ticker, default_hp_metric=False
+        "tb_logs/", name=args.ticker, version=args.version, default_hp_metric=False
     )
     early_stopping = EarlyStopping("loss/valid", min_delta=1e-7)
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
@@ -38,6 +38,7 @@ def train(args: argparse.Namespace):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--ticker", type=str, help="Ticker name")
+    parser.add_argument("-v", "--version", type=str, help="Training version")
     parser.add_argument("-i", "--interval", type=str, help="Interval of time")
     parser.add_argument(
         "-p", "--period", type=str, default="max", help="Num of ticks to fetch"
