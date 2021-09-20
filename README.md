@@ -1,7 +1,7 @@
 # Train
 An example of the command to start the training process:
 
-    python -m train --ticker SPY --interval 1h --period 1y --gpus 1 --max_epochs 12
+    python -m train --ticker AAPL --version basic --interval 1h --period 2y --gpus 1 --max_epochs 36
 
 # Test
 Command to launch the :
@@ -13,3 +13,4 @@ Command to launch the :
 Features that are still pending to be implemented.
 
 - [ ] Support several steps
+- [ ] Load CSV data instead of fetching from yfinance.

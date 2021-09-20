@@ -1,6 +1,14 @@
+# MachineL packages
+sklearn
+
+# DeepL packages
 torch
-pandas
-yfinance
-matplotlib
 torchmetrics
 pytorch-lightning
+
+# Finance
+pandas
+yfinance
+
+# Plotting packages
+matplotlib

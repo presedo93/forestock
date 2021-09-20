@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import pandas as pd
+from torch._C import Value
 import yfinance as yf
 import pytorch_lightning as pl
 
@@ -41,6 +42,10 @@ class TickerDataModule(pl.LightningDataModule):
     def prepare_data(self) -> None:
         # Fetch the data
         df = yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
+
+        if df.empty:
+            raise ValueError(f"{self.ticker}'s data couldn't be fetched for these period and intervals.")
+            exit()
 
         # And discard everything except Open High Low Close and Volume
         df = df[df.columns[:5]]
@@ -97,6 +102,6 @@ class TickerDataModule(pl.LightningDataModule):
         x = torch.tensor(data, dtype=torch.float)
         x = x.unfold(0, window, 1)[:-steps]
 
-        y = torch.tensor(data[..., 3], dtype=torch.float).unsqueeze(1)
+        y = torch.tensor(data[..., 3], dtype=torch.float).unsqueeze(1)[window:]
 
         return TensorDataset(x, y)
