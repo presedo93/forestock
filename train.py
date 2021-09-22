@@ -13,7 +13,7 @@ def train(args: argparse.Namespace):
     ticker = TickerDataModule(
         args.ticker, args.interval, args.period, args.window, args.steps
     )
-    forestock = LitForestockReg(args.window, args.steps)
+    forestock = LitForestockReg(**vars(args))
 
     tb_logger = pl_loggers.TensorBoardLogger(
         "tb_logs/", name=args.ticker, version=args.version, default_hp_metric=False
@@ -40,9 +40,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--ticker", type=str, help="Ticker name")
     parser.add_argument("-v", "--version", type=str, help="Training version")
     parser.add_argument("-i", "--interval", type=str, help="Interval of time")
-    parser.add_argument(
-        "-p", "--period", type=str, default="max", help="Num of ticks to fetch"
-    )
+    parser.add_argument("-p", "--period", type=str, help="Num of ticks to fetch")
     parser.add_argument(
         "-w", "--window", type=int, default=50, help="Num. of days to look back"
     )

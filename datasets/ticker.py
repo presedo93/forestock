@@ -44,7 +44,9 @@ class TickerDataModule(pl.LightningDataModule):
         df = yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
 
         if df.empty:
-            raise ValueError(f"{self.ticker}'s data couldn't be fetched for these period and intervals.")
+            raise ValueError(
+                f"\033[1;31m{self.ticker}'s data couldn't be fetched for these period and intervals.\033[0m"
+            )
             exit()
 
         # And discard everything except Open High Low Close and Volume
@@ -64,7 +66,7 @@ class TickerDataModule(pl.LightningDataModule):
         ticker_full = self.window_series(self.df_sc, self.window, self.steps)
 
         test_size = int(len(ticker_full) * 0.8)
-        if stage == "test" or stage is None:
+        if stage == "test" or stage == "predict":
             self.ticker_test = Subset(ticker_full, range(test_size, len(ticker_full)))
 
         if stage == "fit" or stage is None:

@@ -6,7 +6,7 @@ from torch.nn import functional as F
 
 
 class LitForestockReg(pl.LightningModule):
-    def __init__(self, h_window: int = 50, h_steps: int = 1):
+    def __init__(self, **hparams):
         super().__init__()
         self.save_hyperparameters()
 
@@ -14,8 +14,8 @@ class LitForestockReg(pl.LightningModule):
             torch.nn.Conv1d(5, 128, 3),
             torch.nn.MaxPool1d(2, stride=2),
             torch.nn.GRU(
-                input_size=int(h_window/ 2) - 1,
-                hidden_size=h_window,
+                input_size=int(self.hparams.window / 2) - 1,
+                hidden_size=self.hparams.window,
                 num_layers=2,
                 bidirectional=True,
                 batch_first=True,
@@ -26,17 +26,17 @@ class LitForestockReg(pl.LightningModule):
             torch.nn.Conv1d(3, 128, 2),
             torch.nn.MaxPool1d(2, stride=2),
             torch.nn.GRU(
-                input_size=int(h_window/ 2) - 1,
-                hidden_size=h_window,
+                input_size=int(self.hparams.window / 2) - 1,
+                hidden_size=self.hparams.window,
                 num_layers=1,
                 bidirectional=True,
                 batch_first=True,
             ),
         )
 
-        self.fc1 = torch.nn.Linear(h_window * 4, 128)
+        self.fc1 = torch.nn.Linear(self.hparams.window * 4, 128)
         self.fc2 = torch.nn.Linear(128, 64)
-        self.fc3 = torch.nn.Linear(64, h_steps)
+        self.fc3 = torch.nn.Linear(64, self.hparams.steps)
 
     def forward(self, x) -> torch.Tensor:
         out_ohlc, _ = self.ohlc(x[:, :5])
