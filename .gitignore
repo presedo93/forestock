@@ -3,3 +3,4 @@ __pycache__/
 MNIST/
 *logs/
 *.png
+*.csv

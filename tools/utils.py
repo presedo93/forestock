@@ -1,8 +1,10 @@
 import os
 import yaml
 import argparse
+import numpy as np
+import matplotlib.pyplot as plt
 
-from typing import Tuple
+from typing import Dict, Tuple
 
 
 def str2bool(v: str) -> bool:
@@ -16,17 +18,24 @@ def str2bool(v: str) -> bool:
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def get_checkpoint_hparams(path: str, checkpoint_idx: int = -1) -> Tuple[str, str]:
+def get_checkpoint_hparams(path: str, checkpoint_idx: int = -1) -> Tuple[str, Dict]:
     all_checks = os.listdir(f"{path}/checkpoints")
     checkpoint = f"{path}/checkpoints/{all_checks[checkpoint_idx]}"
 
     with open(f"{path}/hparams.yaml", "r") as y_file:
         hparams = yaml.safe_load(y_file)
 
-    print("Types:", type(checkpoint), type(hparams))
     return checkpoint, hparams
 
 
-def plot():
-    # TODO: Pending to move test.py code here!
-    return None
+def plot_regression(y: np.array, y_hat: np.array, path: str, name: str = "figure", split: float = 0.8) -> None:
+    plt.gcf().set_size_inches(16, 12, forward=True)
+    plt.plot(y_hat[:-1], label="real")
+    plt.plot(y[:-1], label="predicted")
+    if split != 0.0:
+        x = int(y_hat.shape[0] * split)
+        plt.axvline(x, c="r", ls="--")
+    plt.title(f"{name}")
+    plt.legend()
+
+    plt.savefig(f"{path}/{name}.png")

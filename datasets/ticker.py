@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import torch
 import numpy as np
 import pandas as pd
@@ -8,23 +10,29 @@ import pytorch_lightning as pl
 from sklearn.preprocessing import MinMaxScaler
 from typing import Dict, List, Optional, Union
 from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
+from yfinance.ticker import Ticker
 
-from utils import BBANDS
+from tools.ta import BBANDS
 
 
 class TickerDataModule(pl.LightningDataModule):
     def __init__(
         self,
-        ticker: str,
-        interval: str,
-        period: str,
         window: int,
         steps: int,
+        *,
+        csv_path: str = None,
+        ticker: str = None,
+        interval: str = None,
+        period: str = None,
+        split: int = 0.8,
         workers: int = 4,
         batch_size: int = 16,
     ):
         super().__init__()
         # Data fetch parameters.
+        self.csv_path = csv_path
+
         self.ticker = ticker
         self.interval = interval
         self.period = period
@@ -34,40 +42,43 @@ class TickerDataModule(pl.LightningDataModule):
         self.steps = steps
 
         # Train/test stage parameters.
+        self.split = split
         self.batch_size = batch_size
         self.workers = workers
 
+        # Scalers
         self.sc = MinMaxScaler()
 
     def prepare_data(self) -> None:
         # Fetch the data
-        df = yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
+        if self.csv is None:
+            self.df = yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
+        else:
+            self.df = pd.read_csv(self.csv).set_index("Date")
 
-        if df.empty:
+        if self.df.empty:
             raise ValueError(
                 f"\033[1;31m{self.ticker}'s data couldn't be fetched for these period and intervals.\033[0m"
             )
             exit()
 
         # And discard everything except Open High Low Close and Volume
-        df = df[df.columns[:5]]
+        self.df = self.df[self.df.columns[:5]]
 
         # Set index to datetime
-        df.index = pd.to_datetime(df.index, format="%Y-%m-%d %H:%M:%S")
+        self.df.index = pd.to_datetime(self.df.index, format="%Y-%m-%d %H:%M:%S")
 
         # Add Bollinger Bands
-        bbands = BBANDS(df.Close).fillna(0)
-        df = pd.concat([df, bbands], axis=1)
+        bbands = BBANDS(self.df.Close).fillna(0)
+        self.df = pd.concat([self.df, bbands], axis=1)
 
         # Normalize the data
-        self.df_sc = self.sc.fit_transform(df)
+        self.df_sc = self.sc.fit_transform(self.df)
 
     def setup(self, stage: Optional[str]) -> None:
         ticker_full = self.window_series(self.df_sc, self.window, self.steps)
 
-        test_size = int(len(ticker_full) * 0.8)
-        if stage == "test" or stage == "predict":
-            self.ticker_test = Subset(ticker_full, range(test_size, len(ticker_full)))
+        test_size = int(len(ticker_full) * self.split)
 
         if stage == "fit" or stage is None:
             train_set = Subset(ticker_full, range(0, test_size))
@@ -76,6 +87,12 @@ class TickerDataModule(pl.LightningDataModule):
             self.ticker_train, self.ticker_val = random_split(
                 train_set, [train_size, val_size]
             )
+
+        if stage == "test":
+            self.ticker_test = Subset(ticker_full, range(test_size, len(ticker_full)))
+
+        if stage == "predict":
+            self.ticker_pred = ticker_full
 
     def train_dataloader(
         self,
@@ -96,7 +113,7 @@ class TickerDataModule(pl.LightningDataModule):
 
     def predict_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(
-            self.ticker_test, batch_size=self.batch_size, num_workers=self.workers
+            self.ticker_pred, batch_size=self.batch_size, num_workers=self.workers
         )
 
     @staticmethod
@@ -107,3 +124,7 @@ class TickerDataModule(pl.LightningDataModule):
         y = torch.tensor(data[..., 3], dtype=torch.float).unsqueeze(1)[window:]
 
         return TensorDataset(x, y)
+
+    @classmethod
+    def from_csv(cls, path: str) -> TickerDataModule:
+        

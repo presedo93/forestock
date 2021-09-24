@@ -6,6 +6,7 @@ from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 
 from models.regression import LitForestockReg
 from datasets.ticker import TickerDataModule
+from tools.utils import plot_regression
 from test import process_reg_output
 
 
@@ -32,7 +33,9 @@ def train(args: argparse.Namespace):
 
     # Evaluate and plot the test set
     predicts = trainer.predict(forestock, datamodule=ticker)
-    process_reg_output(predicts, ticker.sc)
+    y, y_hat = process_reg_output(predicts, ticker.sc)
+    
+    plot_regression(y, y_hat, f"tb_logs/{args.ticker}/{args.version}")
 
 
 if __name__ == "__main__":
