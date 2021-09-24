@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import torch
 import numpy as np
 import pandas as pd
@@ -51,10 +49,12 @@ class TickerDataModule(pl.LightningDataModule):
 
     def prepare_data(self) -> None:
         # Fetch the data
-        if self.csv is None:
-            self.df = yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
+        if self.csv_path is None:
+            self.df = (
+                yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
+            )
         else:
-            self.df = pd.read_csv(self.csv).set_index("Date")
+            self.df = pd.read_csv(self.csv_path).set_index("Date")
 
         if self.df.empty:
             raise ValueError(
@@ -124,7 +124,3 @@ class TickerDataModule(pl.LightningDataModule):
         y = torch.tensor(data[..., 3], dtype=torch.float).unsqueeze(1)[window:]
 
         return TensorDataset(x, y)
-
-    @classmethod
-    def from_csv(cls, path: str) -> TickerDataModule:
-        

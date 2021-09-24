@@ -12,7 +12,11 @@ from test import process_reg_output
 
 def train(args: argparse.Namespace):
     ticker = TickerDataModule(
-        args.ticker, args.interval, args.period, args.window, args.steps
+        args.window,
+        args.steps,
+        ticker=args.ticker,
+        interval=args.interval,
+        period=args.period,
     )
     forestock = LitForestockReg(**vars(args))
 
@@ -34,7 +38,7 @@ def train(args: argparse.Namespace):
     # Evaluate and plot the test set
     predicts = trainer.predict(forestock, datamodule=ticker)
     y, y_hat = process_reg_output(predicts, ticker.sc)
-    
+
     plot_regression(y, y_hat, f"tb_logs/{args.ticker}/{args.version}")
 
 

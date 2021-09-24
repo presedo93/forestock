@@ -28,7 +28,9 @@ def get_checkpoint_hparams(path: str, checkpoint_idx: int = -1) -> Tuple[str, Di
     return checkpoint, hparams
 
 
-def plot_regression(y: np.array, y_hat: np.array, path: str, name: str = "figure", split: float = 0.8) -> None:
+def plot_regression(
+    y: np.array, y_hat: np.array, path: str, name: str = "figure", split: float = 0.8
+) -> None:
     plt.gcf().set_size_inches(16, 12, forward=True)
     plt.plot(y_hat[:-1], label="real")
     plt.plot(y[:-1], label="predicted")

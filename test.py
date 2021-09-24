@@ -10,7 +10,9 @@ from datasets.ticker import TickerDataModule
 from tools.utils import get_checkpoint_hparams, plot_regression
 
 
-def process_reg_output(predicts: list, scaler: MinMaxScaler) -> Tuple[np.array, np.array]:
+def process_reg_output(
+    predicts: list, scaler: MinMaxScaler
+) -> Tuple[np.array, np.array]:
     y = torch.cat(list(map(lambda x: x[0], predicts)))
     y = y.squeeze(1).cpu().numpy()
 
@@ -32,10 +34,14 @@ def test(args: argparse.Namespace) -> None:
     check_path, hp = get_checkpoint_hparams(args.checkpoint)
 
     if args.data is not None:
-        ticker = TickerDataModule(hp["window"], hp["steps"], csv=args.data)
+        ticker = TickerDataModule(hp["window"], hp["steps"], csv_path=args.data)
     else:
         ticker = TickerDataModule(
-            args.ticker, args.interval, args.period, hp["window"], hp["steps"]
+            hp["window"],
+            hp["steps"],
+            ticker=args.ticker,
+            interval=args.interval,
+            period=args.period,
         )
     forestock = LitForestockReg.load_from_checkpoint(check_path)
 

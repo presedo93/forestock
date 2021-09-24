@@ -6,11 +6,17 @@ An example of the command to start the training process:
 # Test
 Command to launch the :
 
-    python -m test -d data/ADAUSDT.csv -w tb_logs/FST/version_0/checkpoints/epoch=10-step=42470.ckp
+    python -m test --ticker MSFT --interval 1h --period 2y --checkpoint tb_logs/SPY/basic
+
+It also accepts a CSV file as input to test:
+
+    python -m test --ticker ADA --data ADAUSDT.csv --checkpoint tb_logs/SPY/basic --gpus 1
 
 # TODO
 
 Features that are still pending to be implemented.
 
-- [ ] Support several steps
-- [ ] Load CSV data instead of fetching from yfinance.
+- [x] Load CSV data instead of fetching from yfinance.
+- [ ] Train starting from a checkpoint.
+- [ ] Check how to freeze layers.
+- [ ] Support several steps.
