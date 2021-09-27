@@ -12,6 +12,11 @@ It also accepts a CSV file as input to test:
 
     python -m test --ticker ADA --data ADAUSDT.csv --checkpoint tb_logs/SPY/basic --gpus 1
 
+# Inference
+Basic one:
+
+    python -m infer --checkpoint tb_logs/SPY/basic/ --data ADAUSDT.csv --gpus 1
+
 # TODO
 
 Features that are still pending to be implemented.

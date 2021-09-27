@@ -40,4 +40,7 @@ def plot_regression(
     plt.title(f"{name}")
     plt.legend()
 
+    if os.path.exists(path) is False:
+        os.makedirs(path, exist_ok=True)
+
     plt.savefig(f"{path}/{name}.png")

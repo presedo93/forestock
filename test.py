@@ -49,7 +49,7 @@ def test(args: argparse.Namespace) -> None:
     predicts = trainer.predict(forestock, datamodule=ticker)
 
     y, y_hat = process_reg_output(predicts, ticker.sc)
-    plot_regression(y, y_hat, path="./", name=args.ticker, split=0.0)
+    plot_regression(y, y_hat, path="./tests", name=args.ticker, split=0.0)
 
 
 if __name__ == "__main__":
@@ -62,6 +62,6 @@ if __name__ == "__main__":
 
     # Enable pytorch lightning trainer arguments from cli
     parser = pl.Trainer.add_argparse_args(parser)
-    args = parser.parse_args()
 
+    args = parser.parse_args()
     test(args)

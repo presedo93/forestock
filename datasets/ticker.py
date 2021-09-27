@@ -5,12 +5,10 @@ from torch._C import Value
 import yfinance as yf
 import pytorch_lightning as pl
 
+from tools.ta import BBANDS
 from sklearn.preprocessing import MinMaxScaler
 from typing import Dict, List, Optional, Union
 from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
-from yfinance.ticker import Ticker
-
-from tools.ta import BBANDS
 
 
 class TickerDataModule(pl.LightningDataModule):

@@ -58,4 +58,5 @@ if __name__ == "__main__":
     # Enable pytorch lightning trainer arguments from cli
     parser = pl.Trainer.add_argparse_args(parser)
 
-    train(parser.parse_args())
+    args = parser.parse_args()
+    train(args)

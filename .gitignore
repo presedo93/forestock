@@ -1,6 +1,7 @@
 __pycache__/
 .vscode/
 MNIST/
+tests/
 *logs/
 *.png
 *.csv
