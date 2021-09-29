@@ -1,5 +1,6 @@
 # MachineL packages
 sklearn
+onnxruntime-gpu
 
 # DeepL packages
 torch
