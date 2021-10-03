@@ -16,8 +16,10 @@ def import_onnx(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint to load")
-    parser.add_argument("--onnx", type=str, help="Name of the ONNX file")
+    parser.add_argument(
+        "-c", "--checkpoint", type=str, help="Path to the checkpoint to load"
+    )
+    parser.add_argument("-o", "--onnx", type=str, help="Name of the ONNX file")
 
     args = parser.parse_args()
     import_onnx(args)

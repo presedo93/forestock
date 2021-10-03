@@ -5,13 +5,12 @@ A forecasting tool for the stock markets using Deep Neural Networks. It uses Pyt
 ## Train
 An example of the command to start the training process:
 
-    python -m train --ticker AAPL --version basic --interval 1h --period 2y --gpus 1 --max_epochs 36
-
+    python -m train --ticker SPY --version bbands --interval 1h --period 2y --gpus 1 --max_epochs 36
 
 ## Test
 Command to launch the test on a different ticker:
 
-    python -m test --ticker MSFT --interval 1h --period 2y --checkpoint tb_logs/SPY/basic
+    python -m test --ticker MSFT --interval 1h --period 2y --checkpoint tb_logs/SPY/basic --gpus 1
 
 It also accepts a CSV file as input to test:
 
@@ -22,6 +21,8 @@ There are two possibilities to do the inference. The simplest one based on loadi
 
     python -m infer --checkpoint tb_logs/SPY/basic/ --data ADAUSDT.csv --gpus 1
 
+## ONNX
+
 And the second one, which makes use of ONNX. First you need to export the model to an `.onnx` file:
 
     python -m onnx --checkpoint tb_logs/SPY/basic --onnx forestock.onnx
@@ -29,6 +30,10 @@ And the second one, which makes use of ONNX. First you need to export the model 
 And once again use **infer**, but with the `--onnx` argument:
 
     python -m infer --data ADAUSDT.csv --onnx forestock.onnx
+
+## Docker
+
+    docker run --rm --gpus all -v ${PWD}:/forestock forestock ...
 
 ## TODO
 

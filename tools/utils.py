@@ -18,14 +18,15 @@ def str2bool(v: str) -> bool:
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def get_checkpoint_hparams(path: str, checkpoint_idx: int = -1) -> Tuple[str, Dict]:
+def get_checkpoint_hparams(path: str, checkpoint_idx: int = -1) -> Tuple[str, str, Dict]:
     all_checks = os.listdir(f"{path}/checkpoints")
     checkpoint = f"{path}/checkpoints/{all_checks[checkpoint_idx]}"
+    model = path.split("/")[-1]
 
     with open(f"{path}/hparams.yaml", "r") as y_file:
         hparams = yaml.safe_load(y_file)
 
-    return checkpoint, hparams
+    return model, checkpoint, hparams
 
 
 def plot_regression(

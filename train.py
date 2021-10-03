@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 
-from models.regression import LitForestockReg
+from models import model_picker
 from datasets.ticker import TickerDataModule
 from tools.utils import plot_regression
 from test import process_reg_output
@@ -18,7 +18,7 @@ def train(args: argparse.Namespace):
         interval=args.interval,
         period=args.period,
     )
-    forestock = LitForestockReg(**vars(args))
+    forestock = model_picker(args.version)(**vars(args))
 
     tb_logger = pl_loggers.TensorBoardLogger(
         "tb_logs/", name=args.ticker, version=args.version, default_hp_metric=False
@@ -44,8 +44,9 @@ def train(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "--mode", type=str, help="CLF or REG")
     parser.add_argument("-t", "--ticker", type=str, help="Ticker name")
-    parser.add_argument("-v", "--version", type=str, help="Training version")
+    parser.add_argument("-v", "--version", type=str, help="Training model used")
     parser.add_argument("-i", "--interval", type=str, help="Interval of time")
     parser.add_argument("-p", "--period", type=str, help="Num of ticks to fetch")
     parser.add_argument(

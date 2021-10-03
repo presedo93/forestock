@@ -5,53 +5,22 @@ from typing import Any, Dict, Optional
 from torch.nn import functional as F
 
 
-class LitForestockReg(pl.LightningModule):
+class CoreForestock(pl.LightningModule):
     def __init__(self, **hparams):
         super().__init__()
         self.save_hyperparameters()
 
-        self.ohlc = torch.nn.Sequential(
-            torch.nn.Conv1d(5, 128, 3),
-            torch.nn.MaxPool1d(2, stride=2),
-            torch.nn.GRU(
-                input_size=int(self.hparams.window / 2) - 1,
-                hidden_size=self.hparams.window,
-                num_layers=2,
-                bidirectional=True,
-                batch_first=True,
-            ),
-        )
-
-        self.bbands = torch.nn.Sequential(
-            torch.nn.Conv1d(3, 128, 2),
-            torch.nn.MaxPool1d(2, stride=2),
-            torch.nn.GRU(
-                input_size=int(self.hparams.window / 2) - 1,
-                hidden_size=self.hparams.window,
-                num_layers=1,
-                bidirectional=True,
-                batch_first=True,
-            ),
-        )
-
-        self.fc1 = torch.nn.Linear(self.hparams.window * 4, 128)
-        self.fc2 = torch.nn.Linear(128, 64)
-        self.fc3 = torch.nn.Linear(64, self.hparams.steps)
-
-    def forward(self, x) -> torch.Tensor:
-        out_ohlc, _ = self.ohlc(x[:, :5])
-        out_bb, _ = self.bbands(x[:, 5:])
-        y = torch.cat([out_ohlc[:, -1], out_bb[:, -1]], dim=1)
-        y = torch.sigmoid(self.fc1(y))
-        y = torch.sigmoid(self.fc2(y))
-        y = self.fc3(y)
-
-        return y
+        if self.hparams.mode.lower() == "reg":
+            self.loss_fn = F.mse_loss
+        elif self.hparams.mode.lower() == "clf":
+            self.loss_fn = F.cross_entropy
+        else:
+            raise ValueError(f"¨{self.hparams.mode} not supported!")
 
     def training_step(self, batch: Any, batch_idx: int) -> Any:
         x, y = batch
         y_hat = self(x)
-        loss = F.mse_loss(y_hat, y)
+        loss = self.loss_fn(y_hat, y)
         self.log("loss/train", loss, on_step=False, on_epoch=True)
 
         return loss
@@ -59,7 +28,7 @@ class LitForestockReg(pl.LightningModule):
     def validation_step(self, batch: Any, batch_idx: int) -> Any:
         x, y = batch
         y_hat = self(x)
-        loss = F.mse_loss(y_hat, y)
+        loss = self.loss_fn(y_hat, y)
         self.log("loss/valid", loss, on_step=False, on_epoch=True)
 
         return loss
@@ -67,7 +36,7 @@ class LitForestockReg(pl.LightningModule):
     def test_step(self, batch: Any, batch_idx: int) -> Any:
         x, y = batch
         y_hat = self(x)
-        loss = F.mse_loss(y_hat, y)
+        loss = self.loss_fn(y_hat, y)
         self.log("loss/test", loss, on_step=False, on_epoch=True)
 
         return loss

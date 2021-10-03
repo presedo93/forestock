@@ -69,9 +69,11 @@ def inference(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint to load")
-    parser.add_argument("--onnx", type=str, help="ONNX model to infer with")
-    parser.add_argument("--data", type=str, help="Path to the CSV data")
+    parser.add_argument(
+        "-c", "--checkpoint", type=str, help="Path to the checkpoint to load"
+    )
+    parser.add_argument("-o", "--onnx", type=str, help="ONNX model to infer with")
+    parser.add_argument("-d", "--data", type=str, help="Path to the CSV data")
     parser.add_argument("--gpus", type=str2bool, help="Make use of a GPU")
 
     args = parser.parse_args()
