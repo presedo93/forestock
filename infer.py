@@ -5,9 +5,9 @@ import pandas as pd
 import onnxruntime as ort
 import pytorch_lightning as pl
 
-from tools.ta import BBANDS
+from tools.ta import BBANDS, EMA
 from typing import Union, Tuple
-from models.regression import LitForestockReg
+from models import model_picker
 from sklearn.preprocessing import MinMaxScaler
 from tools.utils import get_checkpoint_hparams, str2bool
 
@@ -24,6 +24,10 @@ def get_50_last(csv_path: str) -> pd.DataFrame:
     # Add Bollinger Bands
     bbands = BBANDS(df.Close).fillna(0)
     df = pd.concat([df, bbands], axis=1)
+
+    df["PCT"] = df["Close"].pct_change(fill_method='ffill')
+    df["EMA50"] = EMA(df["Close"], 50, fillna=True)
+    df["EMA200"] = EMA(df["Close"], 200, fillna=True)
 
     return df
 
@@ -47,9 +51,9 @@ def inference(args: argparse.Namespace) -> None:
     x, sc = normalize(get_50_last(args.data))
 
     if args.onnx is None:
-        check_path, hp = get_checkpoint_hparams(args.checkpoint)
+        model, check_path, hp = get_checkpoint_hparams(args.checkpoint)
 
-        forestock = LitForestockReg.load_from_checkpoint(check_path)
+        forestock = model_picker(model).load_from_checkpoint(check_path)
         device = "cuda:0" if torch.cuda.is_available() and args.gpus else "cpu"
         forestock.to(device)
 

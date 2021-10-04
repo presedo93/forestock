@@ -1,16 +1,16 @@
 import torch
 import argparse
 
-from models.regression import LitForestockReg
+from models import model_picker
 from tools.utils import get_checkpoint_hparams
 
 
 def import_onnx(args: argparse.Namespace) -> None:
-    check_path, hp = get_checkpoint_hparams(args.checkpoint)
+    model, check_path, hp = get_checkpoint_hparams(args.checkpoint)
 
     # Save the model
-    forestock = LitForestockReg.load_from_checkpoint(check_path)
-    sample = torch.randn((1, 8, 50))
+    forestock = model_picker(model).load_from_checkpoint(check_path)
+    sample = torch.randn((1, 11, 50))
     forestock.to_onnx(args.onnx, sample, export_params=True)
 
 

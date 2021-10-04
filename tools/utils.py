@@ -21,7 +21,8 @@ def str2bool(v: str) -> bool:
 def get_checkpoint_hparams(path: str, checkpoint_idx: int = -1) -> Tuple[str, str, Dict]:
     all_checks = os.listdir(f"{path}/checkpoints")
     checkpoint = f"{path}/checkpoints/{all_checks[checkpoint_idx]}"
-    model = path.split("/")[-1]
+    model_mode = path.split("/")[-1]
+    model = model_mode.split("_")[0]
 
     with open(f"{path}/hparams.yaml", "r") as y_file:
         hparams = yaml.safe_load(y_file)

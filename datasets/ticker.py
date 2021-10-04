@@ -1,11 +1,10 @@
 import torch
 import numpy as np
 import pandas as pd
-from torch._C import Value
 import yfinance as yf
 import pytorch_lightning as pl
 
-from tools.ta import BBANDS
+from tools.ta import BBANDS, EMA
 from sklearn.preprocessing import MinMaxScaler
 from typing import Dict, List, Optional, Union
 from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
@@ -60,15 +59,22 @@ class TickerDataModule(pl.LightningDataModule):
             )
             exit()
 
-        # And discard everything except Open High Low Close and Volume
+        # And discard everything except Open High Low Close and Volume - Columns 0 to 4
         self.df = self.df[self.df.columns[:5]]
 
         # Set index to datetime
         self.df.index = pd.to_datetime(self.df.index, format="%Y-%m-%d %H:%M:%S")
 
-        # Add Bollinger Bands
+        # Add Bollinger Bands - Columns 5 to 7
         bbands = BBANDS(self.df.Close).fillna(0)
         self.df = pd.concat([self.df, bbands], axis=1)
+
+        # Add percentage change - Column 8
+        self.df["PCT"] = self.df["Close"].pct_change(fill_method='ffill')
+
+        # Add EMA 50 & EMA 200 - Columns 9 to 10
+        self.df["EMA50"] = EMA(self.df["Close"], 50, fillna=True)
+        self.df["EMA200"] = EMA(self.df["Close"], 200, fillna=True)
 
         # Normalize the data
         self.df_sc = self.sc.fit_transform(self.df)

@@ -38,7 +38,7 @@ class BBandsForestock(CoreForestock):
 
     def forward(self, x) -> torch.Tensor:
         out_ohlc, _ = self.ohlc(x[:, :5])
-        out_bb, _ = self.bbands(x[:, 5:])
+        out_bb, _ = self.bbands(x[:, 5:8])
         y = torch.cat([out_ohlc[:, -1], out_bb[:, -1]], dim=1)
         y = torch.sigmoid(self.fc1(y))
         y = torch.sigmoid(self.fc2(y))

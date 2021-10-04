@@ -2,7 +2,13 @@ FROM python:slim-buster
 
 LABEL com.nvidia.volumes.needed=nvidia_driver
 
-WORKDIR /forestock
+RUN useradd -ms /bin/bash scientist
+
+USER scientist
+
+WORKDIR /home/scientist/forestock
+
+ENV PATH="/home/scientist/.local/bin:${PATH}"
 
 COPY requirements.txt .
 

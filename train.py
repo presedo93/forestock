@@ -21,7 +21,7 @@ def train(args: argparse.Namespace):
     forestock = model_picker(args.version)(**vars(args))
 
     tb_logger = pl_loggers.TensorBoardLogger(
-        "tb_logs/", name=args.ticker, version=args.version, default_hp_metric=False
+        "tb_logs/", name=args.ticker, version=f"{args.version}_{args.mode.lower()}", default_hp_metric=False
     )
     early_stopping = EarlyStopping("loss/valid", min_delta=1e-7)
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
@@ -39,7 +39,7 @@ def train(args: argparse.Namespace):
     predicts = trainer.predict(forestock, datamodule=ticker)
     y, y_hat = process_reg_output(predicts, ticker.sc)
 
-    plot_regression(y, y_hat, f"tb_logs/{args.ticker}/{args.version}")
+    plot_regression(y, y_hat, f"tb_logs/{args.ticker}/{args.version}_{args.mode.lower()}")
 
 
 if __name__ == "__main__":
