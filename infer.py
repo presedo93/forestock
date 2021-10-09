@@ -3,7 +3,6 @@ import argparse
 import numpy as np
 import pandas as pd
 import onnxruntime as ort
-import pytorch_lightning as pl
 
 from tools.ta import BBANDS, EMA
 from typing import Union, Tuple

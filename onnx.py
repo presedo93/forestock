@@ -6,7 +6,7 @@ from tools.utils import get_checkpoint_hparams
 
 
 def import_onnx(args: argparse.Namespace) -> None:
-    model, check_path, hp = get_checkpoint_hparams(args.checkpoint)
+    model, check_path, _ = get_checkpoint_hparams(args.checkpoint)
 
     # Save the model
     forestock = model_picker(model).load_from_checkpoint(check_path)

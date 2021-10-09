@@ -13,18 +13,23 @@ from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
 class TickerDataModule(pl.LightningDataModule):
     def __init__(
         self,
+        mode: str,
         window: int,
-        steps: int,
         *,
         csv_path: str = None,
         ticker: str = None,
         interval: str = None,
         period: str = None,
+        target_idx: int = 3,
         split: int = 0.8,
         workers: int = 4,
         batch_size: int = 16,
     ):
         super().__init__()
+        # Clf or reg mode and target column index.
+        self.mode = mode.lower()
+        self.target_idx = target_idx
+
         # Data fetch parameters.
         self.csv_path = csv_path
 
@@ -32,9 +37,8 @@ class TickerDataModule(pl.LightningDataModule):
         self.interval = interval
         self.period = period
 
-        # Model size parameters.
+        # Window size.
         self.window = window
-        self.steps = steps
 
         # Train/test stage parameters.
         self.split = split
@@ -55,7 +59,7 @@ class TickerDataModule(pl.LightningDataModule):
 
         if self.df.empty:
             raise ValueError(
-                f"\033[1;31m{self.ticker}'s data couldn't be fetched for these period and intervals.\033[0m"
+                f"\033[1;31m{self.ticker} data couldn't be fetched for these period and intervals.\033[0m"
             )
             exit()
 
@@ -77,15 +81,21 @@ class TickerDataModule(pl.LightningDataModule):
         self.df["EMA200"] = EMA(self.df["Close"], 200, fillna=True)
 
         # Normalize the data
-        self.df_sc = self.sc.fit_transform(self.df)
+        self.data = self.sc.fit_transform(self.df)
+
+        # Get the pd.Series that is going to be used as target
+        self.target = self.data[..., self.target_idx]
+
+        if self.mode == "clf":
+            self.target = self.target_clf(self.target)
 
     def setup(self, stage: Optional[str]) -> None:
-        ticker_full = self.window_series(self.df_sc, self.window, self.steps)
+        ticker_data = self.window_series(self.data, self.target, self.window, self.mode)
 
-        test_size = int(len(ticker_full) * self.split)
+        test_size = int(len(ticker_data) * self.split)
 
         if stage == "fit" or stage is None:
-            train_set = Subset(ticker_full, range(0, test_size))
+            train_set = Subset(ticker_data, range(0, test_size))
             train_size = int(0.8 * len(train_set))
             val_size = len(train_set) - train_size
             self.ticker_train, self.ticker_val = random_split(
@@ -93,10 +103,10 @@ class TickerDataModule(pl.LightningDataModule):
             )
 
         if stage == "test":
-            self.ticker_test = Subset(ticker_full, range(test_size, len(ticker_full)))
+            self.ticker_test = Subset(ticker_data, range(test_size, len(ticker_data)))
 
         if stage == "predict":
-            self.ticker_pred = ticker_full
+            self.ticker_pred = ticker_data
 
     def train_dataloader(
         self,
@@ -121,10 +131,17 @@ class TickerDataModule(pl.LightningDataModule):
         )
 
     @staticmethod
-    def window_series(data: np.array, window: int, steps: int) -> TensorDataset:
+    def window_series(data: np.array, target: np.array, window: int, mode: str) -> TensorDataset:
         x = torch.tensor(data, dtype=torch.float)
-        x = x.unfold(0, window, 1)[:-steps]
-
-        y = torch.tensor(data[..., 3], dtype=torch.float).unsqueeze(1)[window:]
+        x = x.unfold(0, window, 1)[:-1]
+        y = torch.tensor(target, dtype=torch.float).unsqueeze(1)[window:]
 
         return TensorDataset(x, y)
+
+    @staticmethod
+    def target_clf(array: np.array) -> np.array:
+        target = pd.Series(array).pct_change(1)
+        target[target > 0] = 1
+        target[target <= 0] = 0
+
+        return target.to_numpy()

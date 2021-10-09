@@ -13,7 +13,7 @@ class CoreForestock(pl.LightningModule):
         if self.hparams.mode.lower() == "reg":
             self.loss_fn = F.mse_loss
         elif self.hparams.mode.lower() == "clf":
-            self.loss_fn = F.cross_entropy
+            self.loss_fn = F.binary_cross_entropy
         else:
             raise ValueError(f"¨{self.hparams.mode} not supported!")
 

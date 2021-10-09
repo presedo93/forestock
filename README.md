@@ -39,10 +39,11 @@ And once again use **infer**, but with the `--onnx` argument:
 
 Features that are still pending to be implemented.
 
+- [x] Docker
 - [x] Train fetching from yfinance.
-- [ ] Train form a CSV file.
+- [x] Train form a CSV file.
 - [x] Support a model selector.
+- [ ] Use JSON as input for all the stages.
 - [ ] Train starting from a checkpoint.
 - [ ] Check how to freeze layers.
 - [ ] Support several steps.
-- [x] Docker
