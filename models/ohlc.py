@@ -3,10 +3,14 @@ import pytorch_lightning as pl
 
 from models.core import CoreForestock
 
+OHLC_DESC = """Model with OHLC as input. Input goes through a Sequential of
+Conv1d, MaxPool1d and bidirectional GRU. Lastly it goes through two Linears."""
+
 
 class OHLCForestock(CoreForestock):
     def __init__(self, **hparams):
         super().__init__(**hparams)
+        self.desc = OHLC_DESC
 
         self.ohlc = torch.nn.Sequential(
             torch.nn.Conv1d(5, 128, 3),

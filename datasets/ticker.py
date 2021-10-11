@@ -16,7 +16,7 @@ class TickerDataModule(pl.LightningDataModule):
         mode: str,
         window: int,
         *,
-        csv_path: str = None,
+        csv: str = None,
         ticker: str = None,
         interval: str = None,
         period: str = None,
@@ -24,6 +24,7 @@ class TickerDataModule(pl.LightningDataModule):
         split: int = 0.8,
         workers: int = 4,
         batch_size: int = 16,
+        **kwargs,
     ):
         super().__init__()
         # Clf or reg mode and target column index.
@@ -31,7 +32,7 @@ class TickerDataModule(pl.LightningDataModule):
         self.target_idx = target_idx
 
         # Data fetch parameters.
-        self.csv_path = csv_path
+        self.csv = csv
 
         self.ticker = ticker
         self.interval = interval
@@ -50,12 +51,12 @@ class TickerDataModule(pl.LightningDataModule):
 
     def prepare_data(self) -> None:
         # Fetch the data
-        if self.csv_path is None:
+        if self.csv is None:
             self.df = (
                 yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
             )
         else:
-            self.df = pd.read_csv(self.csv_path).set_index("Date")
+            self.df = pd.read_csv(self.csv).set_index("Date")
 
         if self.df.empty:
             raise ValueError(
@@ -74,7 +75,7 @@ class TickerDataModule(pl.LightningDataModule):
         self.df = pd.concat([self.df, bbands], axis=1)
 
         # Add percentage change - Column 8
-        self.df["PCT"] = self.df["Close"].pct_change(fill_method='ffill')
+        self.df["PCT"] = self.df["Close"].pct_change(fill_method="ffill")
 
         # Add EMA 50 & EMA 200 - Columns 9 to 10
         self.df["EMA50"] = EMA(self.df["Close"], 50, fillna=True)
@@ -82,6 +83,8 @@ class TickerDataModule(pl.LightningDataModule):
 
         # Normalize the data
         self.data = self.sc.fit_transform(self.df)
+
+        self.data = self.sc.inverse_transform(self.data)
 
         # Get the pd.Series that is going to be used as target
         self.target = self.data[..., self.target_idx]
@@ -131,7 +134,9 @@ class TickerDataModule(pl.LightningDataModule):
         )
 
     @staticmethod
-    def window_series(data: np.array, target: np.array, window: int, mode: str) -> TensorDataset:
+    def window_series(
+        data: np.array, target: np.array, window: int, mode: str
+    ) -> TensorDataset:
         x = torch.tensor(data, dtype=torch.float)
         x = x.unfold(0, window, 1)[:-1]
         y = torch.tensor(target, dtype=torch.float).unsqueeze(1)[window:]
@@ -140,7 +145,7 @@ class TickerDataModule(pl.LightningDataModule):
 
     @staticmethod
     def target_clf(array: np.array) -> np.array:
-        target = pd.Series(array).pct_change(1)
+        target = pd.Series(array).pct_change(1).shift(-1)
         target[target > 0] = 1
         target[target <= 0] = 0
 

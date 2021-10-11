@@ -5,7 +5,7 @@ from models import model_picker
 from tools.utils import get_checkpoint_hparams
 
 
-def import_onnx(args: argparse.Namespace) -> None:
+def export_onnx(args: argparse.Namespace) -> None:
     model, check_path, _ = get_checkpoint_hparams(args.checkpoint)
 
     # Save the model
@@ -22,4 +22,4 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--onnx", type=str, help="Name of the ONNX file")
 
     args = parser.parse_args()
-    import_onnx(args)
+    export_onnx(args)

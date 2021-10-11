@@ -12,16 +12,7 @@ from models import model_picker
 
 def train(args: argparse.Namespace):
     args.outs = 1
-    if args.data is not None:
-        ticker = TickerDataModule(args.mode, args.window, csv_path=args.data)
-    else:
-        ticker = TickerDataModule(
-            args.mode,
-            args.window,
-            ticker=args.ticker,
-            interval=args.interval,
-            period=args.period,
-        )
+    ticker = TickerDataModule(**vars(args))
     forestock = model_picker(args.version)(**vars(args))
 
     tb_logger = pl_loggers.TensorBoardLogger(
@@ -57,14 +48,14 @@ def train(args: argparse.Namespace):
             ticker.df.Close,
             y_true,
             y_hat,
-            f"tb_logs/{args.ticker}/{args.version}_{args.mode.lower()}"
+            f"tb_logs/{args.ticker}/{args.version}_{args.mode.lower()}",
         )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--mode", type=str, help="CLF or REG")
-    parser.add_argument("-d", "--data", type=str, help="Path to the CSV data")
+    parser.add_argument("-c", "--csv", type=str, help="Path to the CSV data")
     parser.add_argument("-t", "--ticker", type=str, help="Ticker name")
     parser.add_argument("-v", "--version", type=str, help="Training model used")
     parser.add_argument("-i", "--interval", type=str, help="Interval of time")

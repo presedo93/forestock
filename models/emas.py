@@ -3,10 +3,14 @@ import pytorch_lightning as pl
 
 from models.core import CoreForestock
 
+EMA_DESC = """This model only inputs two EMAS of 50 and 200. It also makes use of
+Conv1d, MaxPool1d and bidirectional GRU. Lasts layers are two Linear."""
+
 
 class EmasForestock(CoreForestock):
     def __init__(self, **hparams):
         super().__init__(**hparams)
+        self.desc = EMA_DESC
 
         self.emas = torch.nn.Sequential(
             torch.nn.Conv1d(2, 64, 1),

@@ -12,4 +12,5 @@ pandas
 yfinance
 
 # Plotting packages
+streamlit
 matplotlib

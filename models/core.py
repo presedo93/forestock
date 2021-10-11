@@ -4,16 +4,19 @@ import pytorch_lightning as pl
 from typing import Any, Dict, Optional
 from torch.nn import functional as F
 
+CORE_DESC = "Base model of Forestock. It includes the different steps (train/val/test & predict)."
+
 
 class CoreForestock(pl.LightningModule):
     def __init__(self, **hparams):
         super().__init__()
         self.save_hyperparameters()
+        self.desc = CORE_DESC
 
         if self.hparams.mode.lower() == "reg":
             self.loss_fn = F.mse_loss
         elif self.hparams.mode.lower() == "clf":
-            self.loss_fn = F.binary_cross_entropy
+            self.loss_fn = F.binary_cross_entropy_with_logits
         else:
             raise ValueError(f"¨{self.hparams.mode} not supported!")
 

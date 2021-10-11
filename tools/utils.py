@@ -21,7 +21,9 @@ def str2bool(v: str) -> bool:
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def get_checkpoint_hparams(path: str, checkpoint_idx: int = -1) -> Tuple[str, str, Dict]:
+def get_checkpoint_hparams(
+    path: str, checkpoint_idx: int = -1
+) -> Tuple[str, str, Dict]:
     all_checks = os.listdir(f"{path}/checkpoints")
     checkpoint = f"{path}/checkpoints/{all_checks[checkpoint_idx]}"
     model_mode = path.split("/")[-1]
@@ -34,7 +36,9 @@ def get_checkpoint_hparams(path: str, checkpoint_idx: int = -1) -> Tuple[str, st
 
 
 def process_output(
-    predicts: list, scaler: MinMaxScaler, mode: str,
+    predicts: list,
+    scaler: MinMaxScaler,
+    mode: str,
 ) -> Tuple[np.array, np.array]:
     # Get the targets
     y_true = torch.cat(list(map(lambda x: x[0], predicts)))
@@ -68,7 +72,11 @@ def process_output(
 
 
 def plot_regression(
-    y_true: np.array, y_hat: np.array, path: str, name: str = "figure", split: float = 0.8
+    y_true: np.array,
+    y_hat: np.array,
+    path: str,
+    name: str = "figure",
+    split: float = 0.8,
 ) -> None:
     plt.gcf().set_size_inches(16, 12, forward=True)
     plt.plot(y_hat[:-1], label="predicted")
@@ -86,9 +94,21 @@ def plot_regression(
 
 
 def plot_classification(
-    p: np.array, y_true: np.array, y_hat: np.array, path: str, name: str = "figure", split: float = 0.8
+    p: np.array,
+    y_true: np.array,
+    y_hat: np.array,
+    path: str,
+    name: str = "figure",
+    split: float = 0.8,
 ) -> None:
-    _, axs = plt.subplots(2, 1, figsize=(16,12), gridspec_kw={'height_ratios': [2, 1]}, sharex=True, sharey=True)
+    _, axs = plt.subplots(
+        2,
+        1,
+        figsize=(16, 12),
+        gridspec_kw={"height_ratios": [2, 1]},
+        sharex=True,
+        sharey=True,
+    )
     plt.subplots_adjust(hspace=0)
     x = np.linspace(0, y_hat.shape[0])
     axs[0].plot(p, label="price")

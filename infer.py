@@ -24,7 +24,7 @@ def get_50_last(csv_path: str) -> pd.DataFrame:
     bbands = BBANDS(df.Close).fillna(0)
     df = pd.concat([df, bbands], axis=1)
 
-    df["PCT"] = df["Close"].pct_change(fill_method='ffill')
+    df["PCT"] = df["Close"].pct_change(fill_method="ffill")
     df["EMA50"] = EMA(df["Close"], 50, fillna=True)
     df["EMA200"] = EMA(df["Close"], 200, fillna=True)
 

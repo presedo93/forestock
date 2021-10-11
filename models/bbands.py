@@ -3,10 +3,15 @@ import pytorch_lightning as pl
 
 from models.core import CoreForestock
 
+BBANDS_DESC = """This model consists of two inputs: ohlc and bbands.
+It makes use of a **Conv1d**, a **Maxpool1d** and a **bidirectional GRU** for both inputs.
+Both GRU outputs are concateneted to finally go through several Linear layes."""
+
 
 class BBandsForestock(CoreForestock):
     def __init__(self, **hparams):
         super().__init__(**hparams)
+        self.desc = BBANDS_DESC
 
         self.ohlc = torch.nn.Sequential(
             torch.nn.Conv1d(5, 128, 3),
