@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  forestock:
+    build:
+      context: ./
+      dockerfile: docker/Dockerfile
+    image: forestock
+    container_name: forestock-ui
+    ports:
+      - "8501:8501"
+    volumes:
+      - "${PWD}:/home/scientist/forestock"
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

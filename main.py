@@ -81,10 +81,13 @@ def main():
     # Task subheader
     st.subheader("4. Task! 🧟")
     st.markdown("It is time to select which task to perform.")
-    task = st.selectbox("Tasks supported", TASKS.keys())
-    st.markdown(TASKS[task]["desc"])
+    task_type = st.selectbox("Tasks supported", TASKS.keys())
+    st.markdown(TASKS[task_type]["desc"])
 
-    st.button("Run", on_click=TASKS[task]["task"](args))
+    task = TASKS[task_type]["task"]
+
+    if st.button("Run Task"):
+        task(args)
 
 if __name__ == "__main__":
     main()
