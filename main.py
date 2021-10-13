@@ -35,7 +35,7 @@ def main():
     st.sidebar.subheader("GPUs")
     gpus_available = st.sidebar.checkbox("Are GPUs available?", value=True)
     if gpus_available:
-        args.gpus = st.sidebar.number_input("Number of GPUs to use", step=1)
+        args.gpus = st.sidebar.number_input("Number of GPUs to use", value=1, step=1)
 
     st.sidebar.subheader("Max num of epochs")
     args.max_epochs = st.sidebar.number_input("Epochs", value=36, step=1)
@@ -86,8 +86,16 @@ def main():
 
     task = TASKS[task_type]["task"]
 
-    if st.button("Run Task"):
-        task(args)
+    task_runned = st.button("Run Task")
+    if task_runned:
+        price, y_true, y_hat, metric = task(args, is_streamlit=True)
+        if args.mode == "reg":
+            metric_type = "Mean Squared Error"
+        else:
+            metric_type = "Accuracy"
+        st.markdown(f"{task_type} Completed! Printing some metrics")
+        st.markdown(f"<span style='color:green; weight: bold'>{metric_type}: {metric:.2f}</span>", unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()

@@ -61,14 +61,13 @@ def process_output(
         y_true = (np.squeeze(y_true, 1) - scaler.min_[3]) / scaler.scale_[3]
         y_hat = (np.squeeze(y_hat, 1) - scaler.min_[3]) / scaler.scale_[3]
 
-        mse = mean_squared_error(y_true, y_hat)
-        print(f"\033[1;32mMean Squared Error: {mse:.2f}\033[0m")
+        metric = mean_squared_error(y_true, y_hat)
+        print(f"\033[1;32mMean Squared Error: {metric:.2f}\033[0m")
     else:
+        metric = accuracy_score(y_true, y_hat)
+        print(f"\033[1;32mAccuracy: {metric:.2f}\033[0m")
 
-        acc = accuracy_score(y_true, y_hat)
-        print(f"\033[1;32mAccuracy: {acc:.2f}\033[0m")
-
-    return y_true, y_hat
+    return y_true, y_hat, metric
 
 
 def plot_regression(

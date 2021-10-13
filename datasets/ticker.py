@@ -84,8 +84,6 @@ class TickerDataModule(pl.LightningDataModule):
         # Normalize the data
         self.data = self.sc.fit_transform(self.df)
 
-        self.data = self.sc.inverse_transform(self.data)
-
         # Get the pd.Series that is going to be used as target
         self.target = self.data[..., self.target_idx]
 

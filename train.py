@@ -1,16 +1,20 @@
 import argparse
-from numpy import arange
+import numpy as np
 import pytorch_lightning as pl
 
+from typing import Tuple
 from pytorch_lightning import loggers as pl_loggers
+from pytorch_lightning import callbacks
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
+from pytorch_lightning.callbacks.progress import ProgressBar
 
 from datasets.ticker import TickerDataModule
 from tools.utils import process_output, plot_classification, plot_regression
+from tools.progress import StProgressBar
 from models import model_picker
 
 
-def train(args: argparse.Namespace):
+def train(args: argparse.Namespace, is_streamlit: bool = False) -> Tuple[np.array, np.array, np.array, float]:
     args.outs = 1
     ticker = TickerDataModule(**vars(args))
     forestock = model_picker(args.version)(**vars(args))
@@ -23,11 +27,15 @@ def train(args: argparse.Namespace):
     )
     early_stopping = EarlyStopping("loss/valid", min_delta=1e-7)
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
+    callbacks = [early_stopping, lr_monitor]
+    if is_streamlit:
+        progress_bar = StProgressBar()
+        callbacks += [progress_bar]
 
     trainer = pl.Trainer.from_argparse_args(
         args,
         logger=tb_logger,
-        callbacks=[early_stopping, lr_monitor],
+        callbacks=callbacks,
     )
 
     trainer.fit(forestock, ticker)
@@ -35,7 +43,7 @@ def train(args: argparse.Namespace):
 
     # Evaluate and plot the test set
     predicts = trainer.predict(forestock, datamodule=ticker)
-    y_true, y_hat = process_output(predicts, ticker.sc, args.mode)
+    y_true, y_hat, metric = process_output(predicts, ticker.sc, args.mode)
 
     if args.mode == "reg":
         plot_regression(
@@ -50,6 +58,8 @@ def train(args: argparse.Namespace):
             y_hat,
             f"tb_logs/{args.ticker}/{args.version}_{args.mode.lower()}",
         )
+
+    return ticker.df.Close.to_numpy(), y_true, y_hat, metric
 
 
 if __name__ == "__main__":
