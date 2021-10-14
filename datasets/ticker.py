@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 from tools.ta import BBANDS, EMA
 from sklearn.preprocessing import MinMaxScaler
 from typing import Dict, List, Optional, Union
+from tools.utils import get_yfinance, get_from_csv
 from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
 
 
@@ -52,11 +53,9 @@ class TickerDataModule(pl.LightningDataModule):
     def prepare_data(self) -> None:
         # Fetch the data
         if self.csv is None:
-            self.df = (
-                yf.Ticker(self.ticker).history(self.period, self.interval).interpolate()
-            )
+            self.df = get_yfinance(self.ticker, self.period, self.interval)
         else:
-            self.df = pd.read_csv(self.csv).set_index("Date")
+            self.df = get_from_csv(self.csv)
 
         if self.df.empty:
             raise ValueError(

@@ -4,24 +4,26 @@ import pytorch_lightning as pl
 
 from typing import Tuple
 from pytorch_lightning import loggers as pl_loggers
-from pytorch_lightning import callbacks
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
-from pytorch_lightning.callbacks.progress import ProgressBar
 
-from datasets.ticker import TickerDataModule
-from tools.utils import process_output, plot_classification, plot_regression
-from tools.progress import StProgressBar
 from models import model_picker
+from tools.plots import plot_figure
+from tools.progress import StProgressBar
+from datasets.ticker import TickerDataModule
+from tools.utils import process_output, get_name_from_args
 
 
-def train(args: argparse.Namespace, is_streamlit: bool = False) -> Tuple[np.array, np.array, np.array, float]:
+def train(
+    args: argparse.Namespace, is_streamlit: bool = False
+) -> Tuple[np.array, np.array, np.array, float]:
     args.outs = 1
     ticker = TickerDataModule(**vars(args))
     forestock = model_picker(args.version)(**vars(args))
 
+    name = get_name_from_args(args)
     tb_logger = pl_loggers.TensorBoardLogger(
         "tb_logs/",
-        name=args.ticker,
+        name=name,
         version=f"{args.version}_{args.mode.lower()}",
         default_hp_metric=False,
     )
@@ -45,21 +47,12 @@ def train(args: argparse.Namespace, is_streamlit: bool = False) -> Tuple[np.arra
     predicts = trainer.predict(forestock, datamodule=ticker)
     y_true, y_hat, metric = process_output(predicts, ticker.sc, args.mode)
 
-    if args.mode == "reg":
-        plot_regression(
-            y_true,
-            y_hat,
-            f"tb_logs/{args.ticker}/{args.version}_{args.mode.lower()}",
-        )
-    else:
-        plot_classification(
-            ticker.df.Close,
-            y_true,
-            y_hat,
-            f"tb_logs/{args.ticker}/{args.version}_{args.mode.lower()}",
-        )
+    # Save the image in the tb_logs subfolder
+    price = ticker.df.Close.to_numpy()
+    save_path = f"tb_logs/{name}/{args.version}_{args.mode.lower()}"
+    plot_figure(price, y_true, y_hat, save_path, args.mode, split=0.8)
 
-    return ticker.df.Close.to_numpy(), y_true, y_hat, metric
+    return price, y_true, y_hat, metric
 
 
 if __name__ == "__main__":

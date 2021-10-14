@@ -2,6 +2,7 @@ from stqdm import stqdm
 
 from pytorch_lightning.callbacks.progress import ProgressBar
 
+
 class StProgressBar(ProgressBar):
     def __init__(self, refresh_rate: int = 1, process_position: int = 0):
         super().__init__(refresh_rate=refresh_rate, process_position=process_position)

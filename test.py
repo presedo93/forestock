@@ -1,12 +1,15 @@
 import argparse
+import numpy as np
 import pytorch_lightning as pl
 
+from typing import Tuple
 from models import model_picker
+from tools.plots import plot_figure
 from datasets.ticker import TickerDataModule
-from tools.utils import get_checkpoint_hparams, plot_regression, process_output
+from tools.utils import get_checkpoint_hparams, process_output
 
 
-def test(args: argparse.Namespace) -> None:
+def test(args: argparse.Namespace) -> Tuple[np.array, np.array, np.array, float]:
     model, check_path, hp = get_checkpoint_hparams(args.checkpoint)
 
     ticker = TickerDataModule(hp["mode"], hp["window"], **vars(args))
@@ -15,8 +18,14 @@ def test(args: argparse.Namespace) -> None:
     trainer = pl.Trainer.from_argparse_args(args)
     predicts = trainer.predict(forestock, datamodule=ticker)
 
-    y, y_hat = process_output(predicts, ticker.sc, hp["mode"])
-    plot_regression(y, y_hat, path="./ticker_tested", name=args.ticker, split=0.0)
+    y_true, y_hat, metric = process_output(predicts, ticker.sc, hp["mode"])
+
+    # Save the image in the ticker_tested folder
+    price = ticker.df.Close.to_numpy()
+    save_path = "./ticker_tested"
+    plot_figure(price, y_true, y_hat, save_path, hp["mode"], split=0.0)
+
+    return price, y_true, y_hat, metric
 
 
 if __name__ == "__main__":

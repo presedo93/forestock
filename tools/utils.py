@@ -3,9 +3,10 @@ import yaml
 import torch
 import argparse
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
+import yfinance as yf
 
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, accuracy_score
 
@@ -19,6 +20,25 @@ def str2bool(v: str) -> bool:
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
+def get_yfinance(ticker: str, period: str, interval: str) -> pd.DataFrame:
+    return yf.Ticker(ticker).history(period, interval).interpolate()
+
+
+def get_from_csv(csv: Any) -> pd.DataFrame:
+    return pd.read_csv(csv).set_index("Date")
+
+
+def get_name_from_args(args: argparse.Namespace) -> str:
+    fields = vars(args).keys()
+    if "csv" in fields:
+        if type(args.csv) == str:
+            return args.csv.split("/")[-1]
+        else:
+            return args.csv.name.split(".")[0]
+    else:
+        return args.ticker
 
 
 def get_checkpoint_hparams(
@@ -39,7 +59,7 @@ def process_output(
     predicts: list,
     scaler: MinMaxScaler,
     mode: str,
-) -> Tuple[np.array, np.array]:
+) -> Tuple[np.array, np.array, float]:
     # Get the targets
     y_true = torch.cat(list(map(lambda x: x[0], predicts)))
 
@@ -68,61 +88,3 @@ def process_output(
         print(f"\033[1;32mAccuracy: {metric:.2f}\033[0m")
 
     return y_true, y_hat, metric
-
-
-def plot_regression(
-    y_true: np.array,
-    y_hat: np.array,
-    path: str,
-    name: str = "figure",
-    split: float = 0.8,
-) -> None:
-    plt.gcf().set_size_inches(16, 12, forward=True)
-    plt.plot(y_hat[:-1], label="predicted")
-    plt.plot(y_true[:-1], label="real")
-    if split != 0.0:
-        x = int(y_hat.shape[0] * split)
-        plt.axvline(x, c="r", ls="--")
-    plt.title(f"{name}")
-    plt.legend()
-
-    if os.path.exists(path) is False:
-        os.makedirs(path, exist_ok=True)
-
-    plt.savefig(f"{path}/{name}.png")
-
-
-def plot_classification(
-    p: np.array,
-    y_true: np.array,
-    y_hat: np.array,
-    path: str,
-    name: str = "figure",
-    split: float = 0.8,
-) -> None:
-    _, axs = plt.subplots(
-        2,
-        1,
-        figsize=(16, 12),
-        gridspec_kw={"height_ratios": [2, 1]},
-        sharex=True,
-        sharey=True,
-    )
-    plt.subplots_adjust(hspace=0)
-    x = np.linspace(0, y_hat.shape[0])
-    axs[0].plot(p, label="price")
-    axs[1].scatter(x, y_hat[:-1], label="predicted")
-    axs[1].scatter(x, y_true[:-1], label="real")
-    if split != 0.0:
-        x = int(y_hat.shape[0] * split)
-        plt.axvline(x, c="r", ls="--")
-    plt.title(f"{name}")
-    plt.legend()
-
-    for ax in axs:
-        ax.label_outer()
-
-    if os.path.exists(path) is False:
-        os.makedirs(path, exist_ok=True)
-
-    plt.savefig(f"{path}/{name}.png")
