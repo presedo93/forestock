@@ -1,3 +1,4 @@
+import os
 import argparse
 import numpy as np
 import pandas as pd
@@ -60,6 +61,16 @@ def main():
     st.title("Forestock ⚗️")
     st.markdown("Train your AI forestock predictor easily!")
 
+    # Check if subfolders already exist.
+    if os.path.exists("tb_logs") is False:
+        os.makedirs("tb_logs", exist_ok=True)
+
+    if os.path.exists("onnx_models") is False:
+        os.makedirs("onnx_models", exist_ok=True)
+
+    if os.path.exists("tickers_test") is False:
+        os.makedirs("tickers_test", exist_ok=True)
+
     # Sidebar
     st.sidebar.title("Pytorch Lightning ⚡")
     st.sidebar.subheader("GPUs")
@@ -69,6 +80,18 @@ def main():
 
     st.sidebar.subheader("Max num of epochs")
     args.max_epochs = st.sidebar.number_input("Epochs", value=36, step=1)
+
+    st.sidebar.subheader("Select a checkpoint")
+    checkp_ticks = ["-"] + os.listdir("tb_logs/")
+    sel_ticker = st.sidebar.selectbox("Select ticker", checkp_ticks)
+
+    # Select a checkpoint to start from
+    if sel_ticker != "-":
+        checkp_mods = os.listdir(f"tb_logs/{sel_ticker}")
+        sel_model = st.sidebar.selectbox("Select model", checkp_mods)
+
+        # Store the variable checkpoint
+        args.checkpoint = os.path.join("tb_logs", sel_ticker, sel_model)
 
     # Data source subheader
     st.subheader("1. Data source! 🤺")
@@ -127,6 +150,7 @@ def main():
     args.window = col2.number_input("Window size", step=1, value=50)
 
     # Task subheader
+    # TODO: Change all this part to make it more clear
     st.subheader("4. Task! 🧟")
     st.markdown("It is time to select which task to perform.")
     task_type = st.selectbox("Tasks supported", TASKS.keys())
@@ -136,7 +160,7 @@ def main():
 
     task_runned = st.button("Run Task")
     if task_runned:
-        price, y_true, y_hat, metric = task(args, is_streamlit=True)
+        fig, metric = task(args, is_st=True)
         if args.mode == "reg":
             metric_name = "Mean Squared Error"
         else:
@@ -148,9 +172,7 @@ def main():
         st.metric(metric_name, round(float(metric), 4))
 
         # Plot some results
-        arr = np.array([price[args.window:], y_true, y_hat])
-        df_metrics = pd.DataFrame(arr.T, columns=["price", "real", "predicted"])
-        st.line_chart(df_metrics)
+        st.pyplot(fig)
 
 
 if __name__ == "__main__":

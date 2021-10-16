@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import streamlit as st
+import matplotlib.figure as fg
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
@@ -22,11 +23,12 @@ def st_ohlc_chart(df: pd.DataFrame) -> None:
 
 def plot_figure(
     p: np.array, y_true: np.array, y_hat: np.array, path: str, mode: str, split: float
-) -> None:
+) -> fg.Figure:
     if mode.lower() == "reg":
-        plot_regression(y_hat, y_true, path)
+        fig = plot_regression(y_hat, y_true, path)
     elif mode.lower() == "clf":
-        plot_classification(p, y_true, y_hat, path)
+        fig = plot_classification(p, y_true, y_hat, path)
+    return fig
 
 
 def plot_regression(
@@ -35,13 +37,14 @@ def plot_regression(
     path: str,
     name: str = "figure",
     split: float = 0.8,
-) -> None:
+) -> fg.Figure:
+    fig, ax = plt.subplots()
     plt.gcf().set_size_inches(16, 12, forward=True)
-    plt.plot(y_hat[:-1], label="predicted")
-    plt.plot(y_true[:-1], label="real")
+    ax.plot(y_hat[:-1], label="predicted")
+    ax.plot(y_true[:-1], label="real")
     if split != 0.0:
         x = int(y_hat.shape[0] * split)
-        plt.axvline(x, c="r", ls="--")
+        ax.axvline(x, c="r", ls="--")
     plt.title(f"{name}")
     plt.legend()
 
@@ -49,6 +52,8 @@ def plot_regression(
         os.makedirs(path, exist_ok=True)
 
     plt.savefig(f"{path}/{name}.png")
+
+    return fig
 
 
 def plot_classification(
@@ -58,8 +63,8 @@ def plot_classification(
     path: str,
     name: str = "figure",
     split: float = 0.8,
-) -> None:
-    _, axs = plt.subplots(
+) -> fg.Figure:
+    fig, axs = plt.subplots(
         2,
         1,
         figsize=(16, 12),
@@ -85,3 +90,5 @@ def plot_classification(
         os.makedirs(path, exist_ok=True)
 
     plt.savefig(f"{path}/{name}.png")
+
+    return fig

@@ -30,15 +30,16 @@ def get_from_csv(csv: Any) -> pd.DataFrame:
     return pd.read_csv(csv).set_index("Date")
 
 
-def get_name_from_args(args: argparse.Namespace) -> str:
-    fields = vars(args).keys()
-    if "csv" in fields:
+def prepare_args(args: argparse.Namespace) -> Dict:
+    hparams = vars(args)
+    if "csv" in hparams.keys():
         if type(args.csv) == str:
-            return args.csv.split("/")[-1]
+            hparams["ticker"] = args.csv.split("/")[-1]
         else:
-            return args.csv.name.split(".")[0]
-    else:
-        return args.ticker
+            hparams["ticker"] = args.csv.name.split(".")[0]
+        hparams.pop("csv")
+
+    return hparams
 
 
 def get_checkpoint_hparams(
