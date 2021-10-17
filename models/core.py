@@ -53,7 +53,7 @@ class CoreForestock(pl.LightningModule):
         return y, y_hat
 
     def configure_optimizers(self) -> Dict:
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
         scheduluer = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode="min", factor=0.1, patience=1
         )

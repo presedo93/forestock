@@ -1,66 +1,19 @@
 import os
 import argparse
-import numpy as np
-import pandas as pd
 import streamlit as st
 
 from test import test
 from train import train
 from infer import inference
 from onnx import export_onnx
+from typing import Any, Dict, Tuple
+from datetime import datetime as dt
 from tools.plots import st_ohlc_chart
 from models import available_models, desc_picker
-from tools.utils import get_yfinance, get_from_csv
-
-# Yfinance periods and intervals
-PERIODS = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
-INTERVALS = [
-    "1m",
-    "2m",
-    "5m",
-    "15m",
-    "30m",
-    "60m",
-    "90m",
-    "1h",
-    "1d",
-    "5d",
-    "1wk",
-    "1mo",
-    "3mo",
-]
-
-# Supported tasks
-TASKS = {
-    "Train": {
-        "task": train,
-        "desc": "This task trains the selected model based on the selected parameters.",
-    },
-    "Test": {
-        "task": test,
-        "desc": "This task tests on a model all the data selected previously.",
-    },
-    "Infer": {
-        "task": inference,
-        "desc": "Get the prediction based on **X windows** days from a model.",
-    },
-    "Export": {"task": export_onnx, "desc": "Export a model to ONNX."},
-}
+from tools.utils import get_yfinance, get_from_csv, open_conf
 
 
-def main():
-    # Argparse Namespace will store all the variables to use the modules.
-    args = argparse.Namespace()
-
-    # Set page title and favicon.
-    st.set_page_config(
-        page_title="Forestock", page_icon="⚗️", initial_sidebar_state="collapsed"
-    )
-
-    # Set main title
-    st.title("Forestock ⚗️")
-    st.markdown("Train your AI forestock predictor easily!")
-
+def create_folders() -> None:
     # Check if subfolders already exist.
     if os.path.exists("tb_logs") is False:
         os.makedirs("tb_logs", exist_ok=True)
@@ -71,49 +24,85 @@ def main():
     if os.path.exists("tickers_test") is False:
         os.makedirs("tickers_test", exist_ok=True)
 
-    # Sidebar
+
+def sidebar(args: argparse.Namespace) -> argparse.Namespace:
+    """Sidebar logic is described in this method.
+
+    Args:
+        args (argparse.Namespace): argparse namespace with all
+        the parameters needed for the tasks.
+
+    Returns:
+        argparse.Namespace: Updated namespace with the new parameters.
+    """
     st.sidebar.title("Pytorch Lightning ⚡")
     st.sidebar.subheader("GPUs")
     gpus_available = st.sidebar.checkbox("Are GPUs available?", value=True)
     if gpus_available:
         args.gpus = st.sidebar.number_input("Number of GPUs to use", value=1, step=1)
 
-    st.sidebar.subheader("Max num of epochs")
-    args.max_epochs = st.sidebar.number_input("Epochs", value=36, step=1)
+    st.sidebar.subheader("Training parameters")
+    args.max_epochs = st.sidebar.number_input("Max num of epochs", value=36, step=1)
+    args.lr = st.sidebar.number_input("Learning Rate", value=1e-3, step=1e-5, format="%e")
+    args.batch = st.sidebar.number_input("Batch size", value=16, step=1)
+    args.workers = st.sidebar.number_input("Workers", value=4, step=1)
+    args.split = st.sidebar.number_input("Training & test split size", value=0.8)
 
-    st.sidebar.subheader("Select a checkpoint")
-    checkp_ticks = ["-"] + os.listdir("tb_logs/")
-    sel_ticker = st.sidebar.selectbox("Select ticker", checkp_ticks)
+    st.sidebar.subheader("Metrics")
+    st.sidebar.multiselect("Metrics to use", ["Acc", "R2 score", "MSE"])
 
-    # Select a checkpoint to start from
-    if sel_ticker != "-":
-        checkp_mods = os.listdir(f"tb_logs/{sel_ticker}")
-        sel_model = st.sidebar.selectbox("Select model", checkp_mods)
+    st.sidebar.subheader("Logger")
+    st.sidebar.selectbox("How to log metrics?", ["Tensorboard", "WandB", "Aim"])
 
-        # Store the variable checkpoint
-        args.checkpoint = os.path.join("tb_logs", sel_ticker, sel_model)
+    return args
 
-    # Data source subheader
-    st.subheader("1. Data source! 🤺")
+
+def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Namespace:
+    """All the logic to fetch the data for the next steps.
+
+    Args:
+        args (argparse.Namespace): namespace with the parameters
+        already defined.
+        conf (Dict): JSON with the config parameters.
+        n (int, optional): Just the index. Defaults to 1.
+
+    Raises:
+        ValueError: When it tries to plot data and the DataFrame
+        is empty.
+
+    Returns:
+        argparse.Namespace: Updated namespace with the new parameters.
+    """
+    st.subheader(f"{n}. Data source! 🤺")
     st.markdown("Data can be fetched from Yahoo Finance or uploading a CSV file.")
 
     use_csv = st.checkbox("Use your own CSV", value=False)
     if use_csv is False:
         # Yahoo finance expander
         with st.expander("Yahoo Finance"):
+            use_dates = st.checkbox("Input dates", value=False)
             col1, col2, col3 = st.columns(3)
 
             # Get the ticker name
             args.ticker = col1.text_input("Ticker")
 
-            # Get interval and period
-            args.interval = col2.selectbox("Interval", INTERVALS, index=8)
-            periods_range, periods_idx = len(PERIODS), 8
-            if INTERVALS.index(args.interval) < 5:
-                periods_range, periods_idx = 3, 2
-            args.period = col3.selectbox(
-                "Period", PERIODS[:periods_range], index=periods_idx
-            )
+            if not use_dates:
+                # Get interval
+                args.interval = col2.selectbox("Interval", conf["intervals"], index=8)
+
+                # Limit periods based on interval
+                periods_range, periods_idx = len(conf["periods"]), 8
+                if conf["intervals"].index(args.interval) < 5:
+                    periods_range, periods_idx = 3, 2
+
+                # Get period
+                args.period = col3.selectbox(
+                    "Period", conf["periods"][:periods_range], index=periods_idx
+                )
+            else:
+                td = dt.now()
+                args.start = col2.date_input("Start Date", value=td.replace(year=td.year - 1))
+                args.end = col3.date_input("End Date", value=td)
     else:
         # CSV read
         with st.expander("CSV Data"):
@@ -132,16 +121,59 @@ def main():
                 raise ValueError("Missing YFinance or CSV data")
             st_ohlc_chart(df)
     except ValueError:
-        st.markdown("Fill the **YFinance** data or import a **CSV**!")
+        st.error("Fill the **YFinance** data or import a **CSV**!")
 
-    # Model selector subheader
-    st.subheader("2. Model selector! 🏗️")
+    return args
+
+
+def model_selector(args: argparse.Namespace, n: int = 1) -> argparse.Namespace:
+    """Logic to select the model.
+
+    Args:
+        args (argparse.Namespace): namespace with the arguments
+        already selected.
+        n (int, optional): Index number. Defaults to 2.
+
+    Returns:
+        argparse.Namespace: updated namespace.
+    """
+    st.subheader(f"{n}. Model selector! 🏗️")
     st.markdown("There are a list of models that can be selected to give them a try")
     args.version = st.selectbox("Models", available_models())
     st.markdown(desc_picker(args.version))
 
-    # Model parameters subheader
-    st.subheader("3. Model hyperparameters! 💫")
+    use_check = st.checkbox("Load from a checkpoint", value=False)
+    if use_check:
+        col1, col2 = st.columns(2)
+        st.markdown("Select a checkpoint.")
+        checkp_ticks = ["-"] + os.listdir("tb_logs/")
+        sel_ticker = col1.selectbox("Select ticker", checkp_ticks)
+
+        # Select a checkpoint to start from
+        checkp_mods = ["-"]
+        if sel_ticker != "-":
+            checkp_mods += os.listdir(f"tb_logs/{sel_ticker}")
+        sel_model = col2.selectbox("Select model", checkp_mods)
+
+        # Store the variable checkpoint
+        if sel_ticker != "-" and sel_model != "-":
+            args.checkpoint = os.path.join("tb_logs", sel_ticker, sel_model)
+
+    return args
+
+
+def model_hyper(args: argparse.Namespace, n: int = 1) -> argparse.Namespace:
+    """Selects config parameters for the model.
+
+    Args:
+        args (argparse.Namespace): namespace with the arguments
+        already selected.
+        n (int, optional): Index value. Defaults to 1.
+
+    Returns:
+        argparse.Namespace: Updated namespace.
+    """
+    st.subheader(f"{n}. Model hyperparameters! 💫")
     col1, col2 = st.columns(2)
     mode = col1.selectbox(
         "Classification or Regression", ["Regression", "Classification"]
@@ -149,30 +181,101 @@ def main():
     args.mode = "reg" if mode == "Regression" else "clf"
     args.window = col2.number_input("Window size", step=1, value=50)
 
-    # Task subheader
-    # TODO: Change all this part to make it more clear
-    st.subheader("4. Task! 🧟")
+    return args
+
+
+def pick_task(conf: Dict, n: int = 1) -> str:
+    """Select which task to perform.
+
+    Args:
+        conf (Dict): JSON with the config parameters.
+        n (int, optional): Index value. Defaults to 1.
+
+    Returns:
+        str: task selected.
+    """
+    st.subheader(f"{n}. Task! 🧟")
     st.markdown("It is time to select which task to perform.")
-    task_type = st.selectbox("Tasks supported", TASKS.keys())
-    st.markdown(TASKS[task_type]["desc"])
+    task = st.selectbox("Tasks supported", conf["tasks"])
 
-    task = TASKS[task_type]["task"]
+    return task
 
-    task_runned = st.button("Run Task")
-    if task_runned:
-        fig, metric = task(args, is_st=True)
-        if args.mode == "reg":
-            metric_name = "Mean Squared Error"
-        else:
-            metric_name = "Accuracy"
-        st.markdown(
-            f"<span style='color:green; font-weight: bold'>{task_type} Completed! Printing some metrics...</span>",
-            unsafe_allow_html=True,
-        )
-        st.metric(metric_name, round(float(metric), 4))
 
-        # Plot some results
-        st.pyplot(fig)
+def run_task(task: str, args: argparse.Namespace, n: int = 1) -> Any:
+    st.subheader(f"{n}. Run! 🧟")
+    task_runned = st.button(f"Launch {task.lower()}")
+    if task_runned and task.lower() == "train":
+        return train(args, is_st=True)
+    elif task_runned and task.lower() == "test":
+        return test(args, is_st=True)
+    elif task_runned and task.lower() == "inference":
+        return inference(args)
+    elif task_runned and task.lower() == "export":
+        return export_onnx(args)
+
+
+def print_metrics(task: str, args: argparse.Namespace, values: Tuple) -> None:
+    fig, metrics = values
+    if args.mode == "reg":
+        metric_name = "Mean Squared Error"
+    else:
+        metric_name = "Accuracy"
+    st.markdown(
+        f"<span style='color:green; font-weight: bold'>{task} Completed! Printing some metrics...</span>",
+        unsafe_allow_html=True,
+    )
+    st.metric(metric_name, round(float(metrics), 4))
+
+    # Plot some results
+    st.pyplot(fig)
+
+
+def main():
+    # Argparse Namespace will store all the variables to use the modules.
+    args = argparse.Namespace()
+
+    # Get config from JSON.
+    conf = open_conf("conf/conf.json")
+
+    # Check if the needed folders exist
+    create_folders()
+
+    # Counter for the indexes
+    n = 1
+
+    # Set page title and favicon.
+    st.set_page_config(
+        page_title="Forestock", page_icon="⚗️", initial_sidebar_state="collapsed"
+    )
+
+    # Set main title
+    st.title("Forestock ⚗️")
+    st.markdown("Train your AI forestock predictor easily!")
+
+    # Sidebar
+    args = sidebar(args)
+
+    # Select the task
+    task = pick_task(conf, n)
+    n += 1
+
+    # Data source subheader
+    if task.lower() in ["train", "test", "inference"]:
+        args = data_source(args, conf, n)
+        n += 1
+
+    # Model selector subheader
+    args = model_selector(args, n)
+    n += 1
+
+    if task.lower() in ["train"]:
+        # Model parameters subheader
+        args = model_hyper(args, n)
+        n += 1
+
+    # Task subheader
+    run_task(task, args, n)
+    n += 1
 
 
 if __name__ == "__main__":

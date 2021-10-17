@@ -1,5 +1,6 @@
 import os
 import yaml
+import json
 import torch
 import argparse
 import numpy as np
@@ -20,6 +21,13 @@ def str2bool(v: str) -> bool:
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
+def open_conf(conf_path: str) -> dict:
+    with open(os.path.join(os.getcwd(), conf_path), "r") as f:
+        conf = json.load(f)
+
+    return conf
 
 
 def get_yfinance(ticker: str, period: str, interval: str) -> pd.DataFrame:
