@@ -6,15 +6,15 @@ from test import test
 from train import train
 from infer import inference
 from onnx import export_onnx
-from typing import Any, Dict, Tuple
 from datetime import datetime as dt
 from tools.plots import st_ohlc_chart
+from typing import Any, Dict, Union, Tuple
 from models import available_models, desc_picker
 from tools.utils import get_yfinance, get_from_csv, open_conf
 
 
 def create_folders() -> None:
-    # Check if subfolders already exist.
+    """Check if subfolders already exist."""
     if os.path.exists("tb_logs") is False:
         os.makedirs("tb_logs", exist_ok=True)
 
@@ -25,7 +25,7 @@ def create_folders() -> None:
         os.makedirs("tickers_test", exist_ok=True)
 
 
-def sidebar(args: argparse.Namespace) -> argparse.Namespace:
+def sidebar(args: argparse.Namespace, conf: Dict) -> argparse.Namespace:
     """Sidebar logic is described in this method.
 
     Args:
@@ -43,16 +43,24 @@ def sidebar(args: argparse.Namespace) -> argparse.Namespace:
 
     st.sidebar.subheader("Training parameters")
     args.max_epochs = st.sidebar.number_input("Max num of epochs", value=36, step=1)
-    args.lr = st.sidebar.number_input("Learning Rate", value=1e-3, step=1e-5, format="%e")
-    args.batch = st.sidebar.number_input("Batch size", value=16, step=1)
+    args.auto_lr_find = st.sidebar.checkbox("Find optimal initial Learning Rate?")
+    # if not args.auto_lr_find:
+    args.learning_rate = st.sidebar.number_input("Learning Rate", value=3e-3, step=1e-5, format="%e")
+    args.batch_size = st.sidebar.number_input("Batch size", value=16, step=1)
     args.workers = st.sidebar.number_input("Workers", value=4, step=1)
     args.split = st.sidebar.number_input("Training & test split size", value=0.8)
 
-    st.sidebar.subheader("Metrics")
-    st.sidebar.multiselect("Metrics to use", ["Acc", "R2 score", "MSE"])
+    st.sidebar.subheader("Targets")
+    target_name = st.sidebar.selectbox("Target column for training", conf["targets"], index=3)
+    args.target_idx = conf["targets"].index(target_name)
 
+    # TODO: Select metrics
+    st.sidebar.subheader("Metrics")
+    st.sidebar.multiselect("Metrics to use", conf["metrics"])
+
+    # TODO: Select loggers
     st.sidebar.subheader("Logger")
-    st.sidebar.selectbox("How to log metrics?", ["Tensorboard", "WandB", "Aim"])
+    st.sidebar.selectbox("How to log metrics?", conf["loggers"])
 
     return args
 
@@ -81,12 +89,12 @@ def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Na
         # Yahoo finance expander
         with st.expander("Yahoo Finance"):
             use_dates = st.checkbox("Input dates", value=False)
-            col1, col2, col3 = st.columns(3)
-
-            # Get the ticker name
-            args.ticker = col1.text_input("Ticker")
-
             if not use_dates:
+                col1, col2, col3 = st.columns(3)
+
+                # Get the ticker name
+                args.ticker = col1.text_input("Ticker")
+
                 # Get interval
                 args.interval = col2.selectbox("Interval", conf["intervals"], index=8)
 
@@ -100,9 +108,12 @@ def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Na
                     "Period", conf["periods"][:periods_range], index=periods_idx
                 )
             else:
+                col1, col2, col3, col4 = st.columns(4)
+                args.ticker = col1.text_input("Ticker")
+                args.interval = col2.selectbox("Interval", conf["intervals"], index=8)
                 td = dt.now()
-                args.start = col2.date_input("Start Date", value=td.replace(year=td.year - 1))
-                args.end = col3.date_input("End Date", value=td)
+                args.start = col3.date_input("Start Date", value=td.replace(year=td.year - 1))
+                args.end = col4.date_input("End Date", value=td)
     else:
         # CSV read
         with st.expander("CSV Data"):
@@ -114,7 +125,10 @@ def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Na
     try:
         if plot_ohlc:
             if use_csv is False:
-                df = get_yfinance(args.ticker, args.period, args.interval)
+                if "period" in args:
+                    df = get_yfinance(args.ticker, args.interval, args.period)
+                else:
+                    df = get_yfinance(args.ticker, args.interval, start=args.start, end=args.end)
             else:
                 df = get_from_csv(args.csv)
             if df.empty:
@@ -138,9 +152,7 @@ def model_selector(args: argparse.Namespace, n: int = 1) -> argparse.Namespace:
         argparse.Namespace: updated namespace.
     """
     st.subheader(f"{n}. Model selector! 🏗️")
-    st.markdown("There are a list of models that can be selected to give them a try")
-    args.version = st.selectbox("Models", available_models())
-    st.markdown(desc_picker(args.version))
+    st.markdown("There is a list of models that can be selected to give them a try")
 
     use_check = st.checkbox("Load from a checkpoint", value=False)
     if use_check:
@@ -158,6 +170,9 @@ def model_selector(args: argparse.Namespace, n: int = 1) -> argparse.Namespace:
         # Store the variable checkpoint
         if sel_ticker != "-" and sel_model != "-":
             args.checkpoint = os.path.join("tb_logs", sel_ticker, sel_model)
+    else:
+        args.version = st.selectbox("Models", available_models())
+        st.markdown(desc_picker(args.version))
 
     return args
 
@@ -204,22 +219,27 @@ def pick_task(conf: Dict, n: int = 1) -> str:
 def run_task(task: str, args: argparse.Namespace, n: int = 1) -> Any:
     st.subheader(f"{n}. Run! 🧟")
     task_runned = st.button(f"Launch {task.lower()}")
-    if task_runned and task.lower() == "train":
-        return train(args, is_st=True)
-    elif task_runned and task.lower() == "test":
-        return test(args, is_st=True)
-    elif task_runned and task.lower() == "inference":
-        return inference(args)
-    elif task_runned and task.lower() == "export":
-        return export_onnx(args)
+    try:
+        if task_runned and task.lower() == "train":
+            return train(args, is_st=True)
+        elif task_runned and task.lower() == "test":
+            return test(args, is_st=True)
+        elif task_runned and task.lower() == "inference":
+            return inference(args)
+        elif task_runned and task.lower() == "export":
+            return export_onnx(args)
+    except ValueError as ve:
+        st.error(ve)
 
 
-def print_metrics(task: str, args: argparse.Namespace, values: Tuple) -> None:
+def print_metrics(task: str, args: argparse.Namespace, values: Tuple, n: int = 1) -> None:
+    st.subheader(f"{n}. Metrics! 🗿")
+
     fig, metrics = values
-    if args.mode == "reg":
-        metric_name = "Mean Squared Error"
-    else:
-        metric_name = "Accuracy"
+    # if args.mode == "reg":
+    metric_name = "Mean Squared Error"
+    # else:
+        # metric_name = "Accuracy"
     st.markdown(
         f"<span style='color:green; font-weight: bold'>{task} Completed! Printing some metrics...</span>",
         unsafe_allow_html=True,
@@ -253,7 +273,7 @@ def main():
     st.markdown("Train your AI forestock predictor easily!")
 
     # Sidebar
-    args = sidebar(args)
+    args = sidebar(args, conf)
 
     # Select the task
     task = pick_task(conf, n)
@@ -268,14 +288,18 @@ def main():
     args = model_selector(args, n)
     n += 1
 
-    if task.lower() in ["train"]:
+    if task.lower() in ["train"] and "checkpoint" not in args:
         # Model parameters subheader
         args = model_hyper(args, n)
         n += 1
 
     # Task subheader
-    run_task(task, args, n)
+    vals = run_task(task, args, n)
     n += 1
+
+    if task.lower() in ["train", "test"] and vals != None:
+        print_metrics(task, args, vals, n)
+        n += 1
 
 
 if __name__ == "__main__":

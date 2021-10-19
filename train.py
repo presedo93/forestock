@@ -10,7 +10,7 @@ from models import model_picker
 from tools.plots import plot_figure
 from tools.progress import StProgressBar
 from datasets.ticker import TickerDataModule
-from tools.utils import process_output, prepare_args
+from tools.utils import process_output, split_args, get_checkpoint_hparams
 
 
 def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[fg.Figure, float]:
@@ -27,26 +27,29 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[fg.Figure, flo
         Tuple[fg.Figure, float]: a figure with the predictions and the metric from it.
     """
     # Prepare the data for the different stages (train/val/test).
-    args.outs = 1
-    ticker = TickerDataModule(**vars(args))
-    hparams = prepare_args(args)
+    hparams = split_args(args)
 
     # Load the model from a checkpoint or create a new one from scratch.
     if "checkpoint" in hparams:
-        forestock = model_picker(args.version).load_from_checkpoint(hparams["checkpoint"])
+        model, check_path, hp = get_checkpoint_hparams(args.checkpoint)
+        ticker = TickerDataModule(hp["mode"], hp["window"], **vars(args))
+        forestock = model_picker(model).load_from_checkpoint(check_path)
+        version, mode = model, hp["mode"]
     else:
+        ticker = TickerDataModule(**vars(args))
         forestock = model_picker(args.version)(**hparams)
+        version, mode = args.version, args.mode
 
     # Define the logger used to store the metrics.
     tb_logger = pl_loggers.TensorBoardLogger(
         "tb_logs/",
         name=hparams["ticker"],
-        version=f"{args.version}_{args.mode.lower()}",
+        version=f"{version}_{mode.lower()}",
         default_hp_metric=False,
     )
 
     # Set the callbacks used during the stages.
-    early_stopping = EarlyStopping("loss/valid", min_delta=1e-7)
+    early_stopping = EarlyStopping("loss/valid", patience=6)
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
     callbacks = [early_stopping, lr_monitor]
 
@@ -62,6 +65,9 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[fg.Figure, flo
         callbacks=callbacks,
     )
 
+    if args.auto_lr_find:
+        trainer.tune(forestock, datamodule=ticker)
+
     # Start the training/validation/test process.
     trainer.fit(forestock, ticker)
     trainer.test(forestock)
@@ -72,26 +78,31 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[fg.Figure, flo
 
     # Save the image in the tb_logs subfolder
     price = ticker.df.Close.to_numpy()
-    save_path = f"tb_logs/{hparams['ticker']}/{args.version}_{args.mode.lower()}"
+    save_path = f"tb_logs/{hparams['ticker']}/{version}_{mode.lower()}"
     fig = plot_figure(price, y_true, y_hat, save_path, args.mode, split=0.8)
 
     return fig, metric
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--mode", type=str, help="CLF or REG")
-    parser.add_argument("-c", "--csv", type=str, help="Path to the CSV data")
-    parser.add_argument("-t", "--ticker", type=str, help="Ticker name")
-    parser.add_argument("-v", "--version", type=str, help="Training model used")
-    parser.add_argument("-i", "--interval", type=str, help="Interval of time")
-    parser.add_argument("-p", "--period", type=str, help="Num of ticks to fetch")
-    parser.add_argument(
-        "-w", "--window", type=int, default=50, help="Num. of days to look back"
-    )
-    parser.add_argument(
-        "-c", "--checkpoint", type=str, help="Path to the checkpoint to load"
-    )
+    parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
+    parser.add_argument("--mode", type=str, help="CLF or REG")
+    parser.add_argument("--csv", type=str, help="Path to the CSV data")
+    parser.add_argument("--ticker", type=str, help="Ticker name")
+    parser.add_argument("--version", type=str, help="Training model used")
+    parser.add_argument("--interval", type=str, help="Interval of time")
+    parser.add_argument("--period", type=str, help="Num of ticks to fetch")
+    parser.add_argument("--window", type=int, default=50, help="Num. of days to look back")
+    parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint to load")
+
+    # Training type params
+    parser.add_argument("--metrics", type=list, default=["r2score", "mse"])
+    parser.add_argument("--outs", type=int, default=1, help="Number of outputs")
+    parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning Rate")
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
+    parser.add_argument("--workers", type=int, default=4, help="Num of workers for dataloaders")
+    parser.add_argument("--split", type=float, default=0.8, help="Split training & test")
+    parser.add_argument("--target_idx", type=int, default=3, help="Column of OHLC to use as target")
 
     # Enable pytorch lightning trainer arguments from cli
     parser = pl.Trainer.add_argparse_args(parser)

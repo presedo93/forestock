@@ -25,9 +25,9 @@ def plot_figure(
     p: np.array, y_true: np.array, y_hat: np.array, path: str, mode: str, split: float
 ) -> fg.Figure:
     if mode.lower() == "reg":
-        fig = plot_regression(y_hat, y_true, path)
+        fig = plot_regression(y_hat, y_true, path, split=split)
     elif mode.lower() == "clf":
-        fig = plot_classification(p, y_true, y_hat, path)
+        fig = plot_classification(p, y_true, y_hat, path, split=split)
     return fig
 
 

@@ -21,6 +21,8 @@ class TickerDataModule(pl.LightningDataModule):
         ticker: str = None,
         interval: str = None,
         period: str = None,
+        start: str = None,
+        end: str = None,
         target_idx: int = 3,
         split: int = 0.8,
         workers: int = 4,
@@ -39,6 +41,9 @@ class TickerDataModule(pl.LightningDataModule):
         self.interval = interval
         self.period = period
 
+        self.start = start
+        self.end = end
+
         # Window size.
         self.window = window
 
@@ -53,15 +58,17 @@ class TickerDataModule(pl.LightningDataModule):
     def prepare_data(self) -> None:
         # Fetch the data
         if self.csv is None:
-            self.df = get_yfinance(self.ticker, self.period, self.interval)
+            if self.period is None:
+                self.df = get_yfinance(self.ticker, self.interval, start=self.start, end=self.end)
+            else:
+                self.df = get_yfinance(self.ticker, self.interval, self.period)
         else:
             self.df = get_from_csv(self.csv)
 
         if self.df.empty:
             raise ValueError(
-                f"\033[1;31m{self.ticker} data couldn't be fetched for these period and intervals.\033[0m"
+                f"{self.ticker} data couldn't be fetched for these period and intervals."
             )
-            exit()
 
         # And discard everything except Open High Low Close and Volume - Columns 0 to 4
         self.df = self.df[self.df.columns[:5]]
@@ -81,7 +88,9 @@ class TickerDataModule(pl.LightningDataModule):
         self.df["EMA200"] = EMA(self.df["Close"], 200, fillna=True)
 
         # Normalize the data
-        self.data = self.sc.fit_transform(self.df)
+        train_size = int(self.split * len(self.df.index))
+        self.sc = self.sc.fit(self.df[:train_size])
+        self.data = self.sc.transform(self.df)
 
         # Get the pd.Series that is going to be used as target
         self.target = self.data[..., self.target_idx]
@@ -96,7 +105,7 @@ class TickerDataModule(pl.LightningDataModule):
 
         if stage == "fit" or stage is None:
             train_set = Subset(ticker_data, range(0, test_size))
-            train_size = int(0.8 * len(train_set))
+            train_size = int(0.9 * len(train_set))
             val_size = len(train_set) - train_size
             self.ticker_train, self.ticker_val = random_split(
                 train_set, [train_size, val_size]

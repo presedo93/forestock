@@ -30,15 +30,34 @@ def open_conf(conf_path: str) -> dict:
     return conf
 
 
-def get_yfinance(ticker: str, period: str, interval: str) -> pd.DataFrame:
-    return yf.Ticker(ticker).history(period, interval).interpolate()
+def get_yfinance(ticker: str, interval: str,  period: str = None, start: str = None, end: str = None) -> pd.DataFrame:
+    if period is not None:
+        df = yf.Ticker(ticker).history(period, interval).interpolate()
+    else:
+        df = yf.Ticker(ticker).history(interval=interval, start=start, end=end).interpolate()
+    if df.empty:
+        raise ValueError(f"{ticker} data couldn't be fetched for these period and intervals.")
+
+    return df
 
 
 def get_from_csv(csv: Any) -> pd.DataFrame:
     return pd.read_csv(csv).set_index("Date")
 
 
-def prepare_args(args: argparse.Namespace) -> Dict:
+def split_args(args: argparse.Namespace) -> Dict:
+    """Split the arguments for the model (the ones to be
+    saved as hparams) to the ones for the Trainer or the
+    Datamodule. For the moment, replaces the csv for a
+    ticker name.
+
+    Args:
+        args (argparse.Namespace): all the arguments passed
+        to the method.
+
+    Returns:
+        Dict: arguments for the LightningModule.
+    """
     hparams = vars(args)
     if "csv" in hparams.keys():
         if type(args.csv) == str:

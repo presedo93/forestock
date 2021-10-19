@@ -1,8 +1,8 @@
 import torch
 import pytorch_lightning as pl
+import torchmetrics as tm
 
 from typing import Any, Dict, Optional
-from torch.nn import functional as F
 
 CORE_DESC = "Base model of Forestock. It includes the different steps (train/val/test & predict)."
 
@@ -12,19 +12,37 @@ class CoreForestock(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.desc = CORE_DESC
+        metrics = {}
 
         if self.hparams.mode.lower() == "reg":
-            self.loss_fn = F.mse_loss
+            self.loss_fn = torch.nn.MSELoss()
+            if "r2score" in self.hparams.metrics:
+                metrics["r2score"] = tm.R2Score()
+            if "mse" in self.hparams.metrics:
+                metrics["mse"] = tm.MeanSquaredError(squared=False)
+
         elif self.hparams.mode.lower() == "clf":
-            self.loss_fn = F.binary_cross_entropy_with_logits
+            self.loss_fn = torch.nn.BCEWithLogitsLoss()
+            if "acc" in self.hparams.metrics:
+                metrics["acc"] = tm.Accuracy()
+            if "recall" in self.hparams.metrics:
+                metrics["acc"] = tm.Recall()
         else:
             raise ValueError(f"¨{self.hparams.mode} not supported!")
+
+        basic_metrics = tm.MetricCollection(metrics)
+        self.train_metrics = basic_metrics.clone(prefix="train_")
+        self.val_metrics   = basic_metrics.clone(prefix="val_")
+        self.test_metrics  = basic_metrics.clone(prefix="test_")
+        self.pred_metrics  = basic_metrics.clone(prefix="pred_")
 
     def training_step(self, batch: Any, batch_idx: int) -> Any:
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
         self.log("loss/train", loss, on_step=False, on_epoch=True)
+        met_out = self.train_metrics(y_hat, y)
+        self.log_dict(met_out)
 
         return loss
 
@@ -33,6 +51,8 @@ class CoreForestock(pl.LightningModule):
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
         self.log("loss/valid", loss, on_step=False, on_epoch=True)
+        met_out = self.val_metrics(y_hat, y)
+        self.log_dict(met_out)
 
         return loss
 
@@ -41,6 +61,8 @@ class CoreForestock(pl.LightningModule):
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
         self.log("loss/test", loss, on_step=False, on_epoch=True)
+        met_out = self.test_metrics(y_hat, y)
+        self.log_dict(met_out)
 
         return loss
 
@@ -49,13 +71,14 @@ class CoreForestock(pl.LightningModule):
     ) -> Any:
         x, y = batch
         y_hat = self(x)
+        metrics = self.pred_metrics(y_hat, y)
 
-        return y, y_hat
+        return y, y_hat, metrics
 
     def configure_optimizers(self) -> Dict:
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
         scheduluer = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.1, patience=1
+            optimizer, mode="min", factor=0.1, patience=2
         )
         return {
             "optimizer": optimizer,
