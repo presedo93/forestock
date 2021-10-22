@@ -8,11 +8,12 @@ torchmetrics
 pytorch-lightning
 
 # Finance
+numpy
 pandas
 yfinance
 
-# Plotting packages
+# Plotting/Dashboard packages
 streamlit
 stqdm
-matplotlib
 plotly
+kaleido

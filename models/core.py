@@ -2,7 +2,7 @@ import torch
 import pytorch_lightning as pl
 import torchmetrics as tm
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 CORE_DESC = "Base model of Forestock. It includes the different steps (train/val/test & predict)."
 
@@ -85,3 +85,17 @@ class CoreForestock(pl.LightningModule):
             "interval": "epoch",
             "lr_scheduler": {"scheduler": scheduluer, "monitor": "loss/valid"},
         }
+
+    def get_metrics(self, mode: List[str]) -> Dict:
+        metrics = {}
+
+        if "train" in mode or "all" in mode:
+            metrics["train"] = self.train_metrics.compute()
+        if "val" in mode or "all" in mode:
+            metrics["val"] = self.val_metrics.compute()
+        if "test" in mode or "all" in mode:
+            metrics["test"] = self.test_metrics.compute()
+        if "pred" in mode or "all" in mode:
+            metrics["pred"] = self.pred_metrics.compute()
+
+        return metrics

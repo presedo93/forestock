@@ -7,10 +7,10 @@ from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 
 from models import model_picker
-from tools.plots import plot_figure
+from tools.plots import plot_result
 from tools.progress import StProgressBar
 from datasets.ticker import TickerDataModule
-from tools.utils import process_output, split_args, get_checkpoint_hparams
+from tools.utils import process_output, remove_csv_args, get_checkpoint_hparams
 
 
 def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[fg.Figure, float]:
@@ -26,24 +26,21 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[fg.Figure, flo
     Returns:
         Tuple[fg.Figure, float]: a figure with the predictions and the metric from it.
     """
-    # Prepare the data for the different stages (train/val/test).
-    hparams = split_args(args)
-
     # Load the model from a checkpoint or create a new one from scratch.
-    if "checkpoint" in hparams:
+    if "checkpoint" in args:
         model, check_path, hp = get_checkpoint_hparams(args.checkpoint)
         ticker = TickerDataModule(hp["mode"], hp["window"], **vars(args))
+        version, mode, name = model, hp["mode"], remove_csv_args(args)
         forestock = model_picker(model).load_from_checkpoint(check_path)
-        version, mode = model, hp["mode"]
     else:
         ticker = TickerDataModule(**vars(args))
-        forestock = model_picker(args.version)(**hparams)
-        version, mode = args.version, args.mode
+        version, mode, name = args.version, args.mode, remove_csv_args(args)
+        forestock = model_picker(args.version)(**vars(args))
 
     # Define the logger used to store the metrics.
     tb_logger = pl_loggers.TensorBoardLogger(
         "tb_logs/",
-        name=hparams["ticker"],
+        name=name,
         version=f"{version}_{mode.lower()}",
         default_hp_metric=False,
     )
@@ -74,14 +71,14 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[fg.Figure, flo
 
     # Evaluate the model with the test set and plot the results.
     predicts = trainer.predict(forestock, datamodule=ticker)
-    y_true, y_hat, metric = process_output(predicts, ticker.sc, args.mode)
+    y_true, y_hat = process_output(predicts, ticker.sc, args.mode)
 
-    # Save the image in the tb_logs subfolder
-    price = ticker.df.Close.to_numpy()
-    save_path = f"tb_logs/{hparams['ticker']}/{version}_{mode.lower()}"
-    fig = plot_figure(price, y_true, y_hat, save_path, args.mode, split=0.8)
+    # # Save the image in the tb_logs subfolder
+    save_path = f"tb_logs/{name}/{version}_{mode.lower()}"
+    fig = plot_result(ticker.df, y_true, y_hat, save_path, args.mode, split=0.8)
+    metrics = forestock.get_metrics(["all"])
 
-    return fig, metric
+    return fig, metrics
 
 
 if __name__ == "__main__":
@@ -92,7 +89,7 @@ if __name__ == "__main__":
     parser.add_argument("--version", type=str, help="Training model used")
     parser.add_argument("--interval", type=str, help="Interval of time")
     parser.add_argument("--period", type=str, help="Num of ticks to fetch")
-    parser.add_argument("--window", type=int, default=50, help="Num. of days to look back")
+    parser.add_argument("--window", type=int, help="Num. of days to look back")
     parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint to load")
 
     # Training type params

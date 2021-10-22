@@ -2,12 +2,12 @@ import os
 import argparse
 import streamlit as st
 
-from test import test
+# from test import test
 from train import train
 from infer import inference
 from onnx import export_onnx
 from datetime import datetime as dt
-from tools.plots import st_ohlc_chart
+from tools.plots import ohlc_chart
 from typing import Any, Dict, Union, Tuple
 from models import available_models, desc_picker
 from tools.utils import get_yfinance, get_from_csv, open_conf
@@ -133,7 +133,8 @@ def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Na
                 df = get_from_csv(args.csv)
             if df.empty:
                 raise ValueError("Missing YFinance or CSV data")
-            st_ohlc_chart(df)
+            fig = ohlc_chart(df)
+            st.plotly_chart(fig, use_container_width=True)
     except ValueError:
         st.error("Fill the **YFinance** data or import a **CSV**!")
 
@@ -222,8 +223,8 @@ def run_task(task: str, args: argparse.Namespace, n: int = 1) -> Any:
     try:
         if task_runned and task.lower() == "train":
             return train(args, is_st=True)
-        elif task_runned and task.lower() == "test":
-            return test(args, is_st=True)
+        # elif task_runned and task.lower() == "test":
+        #     return test(args, is_st=True)
         elif task_runned and task.lower() == "inference":
             return inference(args)
         elif task_runned and task.lower() == "export":

@@ -9,7 +9,6 @@ import yfinance as yf
 
 from typing import Any, Dict, Tuple
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error, accuracy_score
 
 
 def str2bool(v: str) -> bool:
@@ -45,7 +44,7 @@ def get_from_csv(csv: Any) -> pd.DataFrame:
     return pd.read_csv(csv).set_index("Date")
 
 
-def split_args(args: argparse.Namespace) -> Dict:
+def remove_csv_args(args: argparse.Namespace) -> str:
     """Split the arguments for the model (the ones to be
     saved as hparams) to the ones for the Trainer or the
     Datamodule. For the moment, replaces the csv for a
@@ -56,17 +55,19 @@ def split_args(args: argparse.Namespace) -> Dict:
         to the method.
 
     Returns:
-        Dict: arguments for the LightningModule.
+        str: name of the csv file.
     """
     hparams = vars(args)
     if "csv" in hparams.keys():
         if type(args.csv) == str:
-            hparams["ticker"] = args.csv.split("/")[-1]
+            name = args.csv.split("/")[-1].split(".")[0]
         else:
-            hparams["ticker"] = args.csv.name.split(".")[0]
+            name = args.csv.name.split(".")[0]
         hparams.pop("csv")
+    else:
+        name = args.ticker
 
-    return hparams
+    return name
 
 
 def get_checkpoint_hparams(
@@ -104,15 +105,8 @@ def process_output(
     y_hat = y_hat.cpu() if y_hat.device != "cpu" else y_hat
     y_hat = y_hat.numpy()
 
-    if mode == "reg":
-        # Unnormalize data
-        y_true = (np.squeeze(y_true, 1) - scaler.min_[3]) / scaler.scale_[3]
-        y_hat = (np.squeeze(y_hat, 1) - scaler.min_[3]) / scaler.scale_[3]
+    # Unnormalize data
+    y_true = (np.squeeze(y_true, 1) - scaler.min_[3]) / scaler.scale_[3]
+    y_hat = (np.squeeze(y_hat, 1) - scaler.min_[3]) / scaler.scale_[3]
 
-        metric = mean_squared_error(y_true, y_hat)
-        print(f"\033[1;32mMean Squared Error: {metric:.2f}\033[0m")
-    else:
-        metric = accuracy_score(y_true, y_hat)
-        print(f"\033[1;32mAccuracy: {metric:.2f}\033[0m")
-
-    return y_true, y_hat, metric
+    return y_true, y_hat
