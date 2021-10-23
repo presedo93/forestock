@@ -52,18 +52,16 @@ def get_from_csv(csv: Any) -> pd.DataFrame:
     return pd.read_csv(csv).set_index("Date")
 
 
-def remove_csv_args(args: argparse.Namespace) -> str:
-    """Split the arguments for the model (the ones to be
-    saved as hparams) to the ones for the Trainer or the
-    Datamodule. For the moment, replaces the csv for a
-    ticker name.
+def get_ticker_args(args: argparse.Namespace) -> str:
+    """Get the ticker from the args or from the csv
+    parameter.
 
     Args:
         args (argparse.Namespace): all the arguments passed
         to the method.
 
     Returns:
-        str: name of the csv file.
+        str: name of the ticker.
     """
     hparams = vars(args)
     if "csv" in hparams.keys():
@@ -71,7 +69,6 @@ def remove_csv_args(args: argparse.Namespace) -> str:
             name = args.csv.split("/")[-1].split(".")[0]
         else:
             name = args.csv.name.split(".")[0]
-        hparams.pop("csv")
     else:
         name = args.ticker
 
@@ -113,8 +110,13 @@ def process_output(
     y_hat = y_hat.cpu() if y_hat.device != "cpu" else y_hat
     y_hat = y_hat.numpy()
 
+    # Squeeze dimensions
+    y_true = np.squeeze(y_true, 1)
+    y_hat = np.squeeze(y_hat, 1)
+
     # Unnormalize data
-    y_true = (np.squeeze(y_true, 1) - scaler.min_[3]) / scaler.scale_[3]
-    y_hat = (np.squeeze(y_hat, 1) - scaler.min_[3]) / scaler.scale_[3]
+    if mode == "reg":
+        y_true = (y_true - scaler.min_[3]) / scaler.scale_[3]
+        y_hat = (y_hat - scaler.min_[3]) / scaler.scale_[3]
 
     return y_true, y_hat

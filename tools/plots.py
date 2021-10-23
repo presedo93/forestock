@@ -47,14 +47,19 @@ def plot_result(
     mode: str,
     split: float,
 ) -> go.Figure:
-
     fig = ohlc_chart(df)
 
     window = len(df.index) - len(y_true)
     if mode.lower() == "reg":
         fig.add_trace(go.Scatter(x=df.index[window:], y=y_true, name="Real"))
         fig.add_trace(go.Scatter(x=df.index[window:], y=y_hat, name="Prediction"))
-    # elif mode.lower() == "clf":
+    elif mode.lower() == "clf":
+        y = np.where((y_true == 1) & (y_hat == 1), 1, np.nan) * df.Close.mean()
+        fig.add_trace(
+            go.Scatter(x=df.index[window:], y=y, name="Here", mode="markers"),
+            row=1,
+            col=1,
+        )
 
     if split > 0.0:
         x = int(len(df.index) * split)

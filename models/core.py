@@ -10,7 +10,7 @@ CORE_DESC = "Base model of Forestock. It includes the different steps (train/val
 class CoreForestock(pl.LightningModule):
     def __init__(self, **hparams):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore="csv")
         self.desc = CORE_DESC
         metrics = {}
 

@@ -10,7 +10,7 @@ from models import model_picker
 from tools.plots import plot_result
 from tools.progress import StProgressBar
 from datasets.ticker import TickerDataModule
-from tools.utils import process_output, remove_csv_args, get_checkpoint_hparams
+from tools.utils import process_output, get_ticker_args, get_checkpoint_hparams
 
 
 def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[go.Figure, Dict]:
@@ -29,12 +29,12 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[go.Figure, Dic
     # Load the model from a checkpoint or create a new one from scratch.
     if "checkpoint" in args:
         model, check_path, hp = get_checkpoint_hparams(args.checkpoint)
+        version, mode, name = model, hp["mode"], get_ticker_args(args)
         ticker = TickerDataModule(hp["mode"], hp["window"], **vars(args))
-        version, mode, name = model, hp["mode"], remove_csv_args(args)
         forestock = model_picker(model).load_from_checkpoint(check_path)
     else:
+        version, mode, name = args.version, args.mode, get_ticker_args(args)
         ticker = TickerDataModule(**vars(args))
-        version, mode, name = args.version, args.mode, remove_csv_args(args)
         forestock = model_picker(args.version)(**vars(args))
 
     # Define the logger used to store the metrics.
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("--period", type=str, help="Num of ticks to fetch")
     parser.add_argument("--window", type=int, help="Num. of days to look back")
     parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint to load")
-    parser.add_argument("--metrics", action="append", help="Metrics to use")
+    parser.add_argument("--metrics", type=str, help="Metrics to use")
 
     # Training type params
     parser.add_argument("--outs", type=int, default=1, help="Number of outputs")
