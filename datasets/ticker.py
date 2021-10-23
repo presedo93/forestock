@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 import pandas as pd
-import yfinance as yf
 import pytorch_lightning as pl
 
 from tools.ta import BBANDS, EMA
@@ -24,7 +23,7 @@ class TickerDataModule(pl.LightningDataModule):
         start: str = None,
         end: str = None,
         target_idx: int = 3,
-        split: int = 0.8,
+        split: float = 0.8,
         workers: int = 4,
         batch_size: int = 16,
         **kwargs,
@@ -59,7 +58,9 @@ class TickerDataModule(pl.LightningDataModule):
         # Fetch the data
         if self.csv is None:
             if self.period is None:
-                self.df = get_yfinance(self.ticker, self.interval, start=self.start, end=self.end)
+                self.df = get_yfinance(
+                    self.ticker, self.interval, start=self.start, end=self.end
+                )
             else:
                 self.df = get_yfinance(self.ticker, self.interval, self.period)
         else:
@@ -93,10 +94,10 @@ class TickerDataModule(pl.LightningDataModule):
         self.data = self.sc.transform(self.df)
 
         # Get the pd.Series that is going to be used as target
-        self.target = self.data[..., self.target_idx]
-
-        if self.mode == "clf":
-            self.target = self.target_clf(self.target)
+        if self.mode.lower() == "clf":
+            self.target = self.target_clf(self.df, self.window)
+        else:
+            self.target = self.data[..., self.target_idx]
 
     def setup(self, stage: Optional[str]) -> None:
         ticker_data = self.window_series(self.data, self.target, self.window, self.mode)
@@ -150,9 +151,13 @@ class TickerDataModule(pl.LightningDataModule):
         return TensorDataset(x, y)
 
     @staticmethod
-    def target_clf(array: np.array) -> np.array:
-        target = pd.Series(array).pct_change(1).shift(-1)
-        target[target > 0] = 1
-        target[target <= 0] = 0
+    def target_clf(data: pd.DataFrame, window: int) -> np.array:
+        half = int(window / 2)
+        target = np.where(
+            (data.EMA50 < data.Close)
+            & (data.EMA50.shift(-half) > data.Close.shift(-half)),
+            1,
+            0,
+        )
 
-        return target.to_numpy()
+        return target

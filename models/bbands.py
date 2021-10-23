@@ -1,5 +1,4 @@
 import torch
-import pytorch_lightning as pl
 
 from models.core import CoreForestock
 

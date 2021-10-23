@@ -26,21 +26,23 @@ class CoreForestock(pl.LightningModule):
             if "acc" in self.hparams.metrics:
                 metrics["acc"] = tm.Accuracy()
             if "recall" in self.hparams.metrics:
-                metrics["acc"] = tm.Recall()
+                metrics["recall"] = tm.Recall()
         else:
             raise ValueError(f"¨{self.hparams.mode} not supported!")
 
         basic_metrics = tm.MetricCollection(metrics)
         self.train_metrics = basic_metrics.clone(prefix="train_")
-        self.val_metrics   = basic_metrics.clone(prefix="val_")
-        self.test_metrics  = basic_metrics.clone(prefix="test_")
-        self.pred_metrics  = basic_metrics.clone(prefix="pred_")
+        self.val_metrics = basic_metrics.clone(prefix="val_")
+        self.test_metrics = basic_metrics.clone(prefix="test_")
+        self.pred_metrics = basic_metrics.clone(prefix="pred_")
 
     def training_step(self, batch: Any, batch_idx: int) -> Any:
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
         self.log("loss/train", loss, on_step=False, on_epoch=True)
+
+        y = y.int() if self.hparams.mode.lower() == "clf" else y
         met_out = self.train_metrics(y_hat, y)
         self.log_dict(met_out)
 
@@ -51,6 +53,8 @@ class CoreForestock(pl.LightningModule):
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
         self.log("loss/valid", loss, on_step=False, on_epoch=True)
+
+        y = y.int() if self.hparams.mode.lower() == "clf" else y
         met_out = self.val_metrics(y_hat, y)
         self.log_dict(met_out)
 
@@ -61,6 +65,8 @@ class CoreForestock(pl.LightningModule):
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
         self.log("loss/test", loss, on_step=False, on_epoch=True)
+
+        y = y.int() if self.hparams.mode.lower() == "clf" else y
         met_out = self.test_metrics(y_hat, y)
         self.log_dict(met_out)
 
@@ -71,6 +77,8 @@ class CoreForestock(pl.LightningModule):
     ) -> Any:
         x, y = batch
         y_hat = self(x)
+
+        y = y.int() if self.hparams.mode.lower() == "clf" else y
         metrics = self.pred_metrics(y_hat, y)
 
         return y, y_hat, metrics

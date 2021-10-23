@@ -8,7 +8,7 @@ from infer import inference
 from onnx import export_onnx
 from datetime import datetime as dt
 from tools.plots import ohlc_chart
-from typing import Any, Dict, Union, Tuple
+from typing import Any, Dict, Tuple
 from models import available_models, desc_picker
 from tools.utils import get_yfinance, get_from_csv, open_conf
 
@@ -44,14 +44,19 @@ def sidebar(args: argparse.Namespace, conf: Dict) -> argparse.Namespace:
     st.sidebar.subheader("Training parameters")
     args.max_epochs = st.sidebar.number_input("Max num of epochs", value=36, step=1)
     args.auto_lr_find = st.sidebar.checkbox("Find optimal initial Learning Rate?")
-    # if not args.auto_lr_find:
-    args.learning_rate = st.sidebar.number_input("Learning Rate", value=3e-3, step=1e-5, format="%e")
+
+    args.learning_rate = st.sidebar.number_input(
+        "Learning Rate", value=3e-3, step=1e-5, format="%e"
+    )
     args.batch_size = st.sidebar.number_input("Batch size", value=16, step=1)
+
     args.workers = st.sidebar.number_input("Workers", value=4, step=1)
     args.split = st.sidebar.number_input("Training & test split size", value=0.8)
 
     st.sidebar.subheader("Targets")
-    target_name = st.sidebar.selectbox("Target column for training", conf["targets"], index=3)
+    target_name = st.sidebar.selectbox(
+        "Target column for training", conf["targets"], index=3
+    )
     args.target_idx = conf["targets"].index(target_name)
 
     # TODO: Select metrics
@@ -112,7 +117,9 @@ def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Na
                 args.ticker = col1.text_input("Ticker")
                 args.interval = col2.selectbox("Interval", conf["intervals"], index=8)
                 td = dt.now()
-                args.start = col3.date_input("Start Date", value=td.replace(year=td.year - 1))
+                args.start = col3.date_input(
+                    "Start Date", value=td.replace(year=td.year - 1)
+                )
                 args.end = col4.date_input("End Date", value=td)
     else:
         # CSV read
@@ -128,7 +135,9 @@ def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Na
                 if "period" in args:
                     df = get_yfinance(args.ticker, args.interval, args.period)
                 else:
-                    df = get_yfinance(args.ticker, args.interval, start=args.start, end=args.end)
+                    df = get_yfinance(
+                        args.ticker, args.interval, start=args.start, end=args.end
+                    )
             else:
                 df = get_from_csv(args.csv)
             if df.empty:
@@ -233,14 +242,16 @@ def run_task(task: str, args: argparse.Namespace, n: int = 1) -> Any:
         st.error(ve)
 
 
-def print_metrics(task: str, args: argparse.Namespace, values: Tuple, n: int = 1) -> None:
+def print_metrics(
+    task: str, args: argparse.Namespace, values: Tuple, n: int = 1
+) -> None:
     st.subheader(f"{n}. Metrics! 🗿")
 
     fig, metrics = values
     # if args.mode == "reg":
     metric_name = "Mean Squared Error"
     # else:
-        # metric_name = "Accuracy"
+    # metric_name = "Accuracy"
     st.markdown(
         f"<span style='color:green; font-weight: bold'>{task} Completed! Printing some metrics...</span>",
         unsafe_allow_html=True,
@@ -298,7 +309,7 @@ def main():
     vals = run_task(task, args, n)
     n += 1
 
-    if task.lower() in ["train", "test"] and vals != None:
+    if task.lower() in ["train", "test"] and vals is not None:
         print_metrics(task, args, vals, n)
         n += 1
 

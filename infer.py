@@ -5,7 +5,7 @@ import pandas as pd
 import onnxruntime as ort
 
 from tools.ta import BBANDS, EMA
-from typing import Union, Tuple
+from typing import Tuple
 from models import model_picker
 from sklearn.preprocessing import MinMaxScaler
 from tools.utils import get_checkpoint_hparams, str2bool
@@ -38,7 +38,7 @@ def normalize(df: pd.DataFrame) -> Tuple[np.array, MinMaxScaler]:
     return x, sc
 
 
-def unnormalize(y_hat: Union[list, torch.tensor], sc: MinMaxScaler) -> np.array:
+def unnormalize(y_hat: torch.tensor, sc: MinMaxScaler) -> np.array:
     if type(y_hat) is not list:
         if y_hat.device != "cpu":
             y_hat = y_hat.cpu()

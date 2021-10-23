@@ -1,5 +1,4 @@
 import argparse
-import numpy as np
 import matplotlib.figure as fg
 import pytorch_lightning as pl
 

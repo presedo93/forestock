@@ -16,4 +16,9 @@ yfinance
 streamlit
 stqdm
 plotly
+
+# Others
+pre-commit
 kaleido
+PyYAML
+types-PyYAML

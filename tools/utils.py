@@ -29,13 +29,21 @@ def open_conf(conf_path: str) -> dict:
     return conf
 
 
-def get_yfinance(ticker: str, interval: str,  period: str = None, start: str = None, end: str = None) -> pd.DataFrame:
+def get_yfinance(
+    ticker: str, interval: str, period: str = None, start: str = None, end: str = None
+) -> pd.DataFrame:
     if period is not None:
         df = yf.Ticker(ticker).history(period, interval).interpolate()
     else:
-        df = yf.Ticker(ticker).history(interval=interval, start=start, end=end).interpolate()
+        df = (
+            yf.Ticker(ticker)
+            .history(interval=interval, start=start, end=end)
+            .interpolate()
+        )
     if df.empty:
-        raise ValueError(f"{ticker} data couldn't be fetched for these period and intervals.")
+        raise ValueError(
+            f"{ticker} data couldn't be fetched for these period and intervals."
+        )
 
     return df
 
@@ -88,7 +96,7 @@ def process_output(
     predicts: list,
     scaler: MinMaxScaler,
     mode: str,
-) -> Tuple[np.array, np.array, float]:
+) -> Tuple[np.array, np.array]:
     # Get the targets
     y_true = torch.cat(list(map(lambda x: x[0], predicts)))
 
