@@ -22,3 +22,6 @@ pre-commit
 kaleido
 PyYAML
 types-PyYAML
+
+# Testing
+pytest

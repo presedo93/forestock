@@ -35,6 +35,15 @@ And once again use **infer**, but with the `--onnx` argument:
 
     docker run --rm --gpus all -v ${PWD}:/home/scientist/forestock forestock ...
 
+## Tests
+This project has some basic tests done with pytest.
+
+    python -m pytest --disable-pytest-warnings
+
+For stdout:
+
+    python -m pytest --disable-pytest-warnings -s
+
 ## TODO
 
 Features that are still pending to be implemented.
