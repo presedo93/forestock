@@ -79,6 +79,9 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[go.Figure, Dic
     fig = plot_result(ticker.df, y_true, y_hat, save_path, args.mode, split=0.8)
     metrics = forestock.get_metrics(["all"])
 
+    if not is_st:
+        print(metrics)
+
     return fig, metrics
 
 
