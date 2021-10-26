@@ -16,20 +16,29 @@ It also accepts a CSV file as input to test:
 
     python -m test --ticker ADA --data ADAUSDT.csv --checkpoint tb_logs/SPY/ohlc --gpus 1
 
-## Inference
-There are two possibilities to do the inference. The simplest one based on loading the model from a checkpoint and inferencing it (via PyTorch):
+## Inference (Done)
 
-    python -m infer --checkpoint tb_logs/SPY/ohlc/ --data ADAUSDT.csv --gpus 1
+For a checkpoint:
 
-## ONNX
+    python -m infer --data ADAUSDT.csv --type basic --model tb_logs/ADAUSDT/ohlc_clf --mode clf
 
-And the second one, which makes use of ONNX. First you need to export the model to an `.onnx` file:
+For ONNX:
 
-    python -m onnx --checkpoint tb_logs/SPY/ohlc --onnx forestock.onnx
+    python -m infer --data ADAUSDT.csv --type onnx --model exports/onnx/adausdt.onnx --mode clf
 
-And once again use **infer**, but with the `--onnx` argument:
+For TorchScript:
 
-    python -m infer --data ADAUSDT.csv --onnx forestock.onnx
+    python -m infer --data ADAUSDT.csv --type torchscript --model exports/torchscript/adausdt.pt --mode clf
+
+## Export (Done)
+
+Export models to ONNX:
+
+    python -m export --checkpoint tb_logs/ADAUSDT/ohlc_clf --type torchscript --name adausdt
+
+Or TorchScript:
+
+    python -m export --checkpoint tb_logs/ADAUSDT/ohlc_clf --type onnx --name adausdt
 
 ## Docker
 
@@ -52,7 +61,6 @@ Features that are still pending to be implemented.
 - [x] Train fetching from yfinance.
 - [x] Train form a CSV file.
 - [x] Support a model selector.
-- [ ] Use JSON as input for all the stages.
-- [ ] Train starting from a checkpoint.
+- [x] Train starting from a checkpoint.
 - [ ] Check how to freeze layers.
 - [ ] Support several steps.

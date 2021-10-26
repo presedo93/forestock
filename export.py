@@ -7,6 +7,14 @@ from tools.utils import get_checkpoint_hparams
 
 
 def export(args: argparse.Namespace) -> None:
+    """Export the model to ONNX or to TorchScript.
+
+    Args:
+        args (argparse.Namespace): checkpoint, desired output file, etc...
+
+    Raises:
+        ValueError: if type doesn't meet ONNX or TorchScript.
+    """
     if os.path.exists(f"exports/{args.type.lower()}") is False:
         os.makedirs(f"exports/{args.type.lower()}", exist_ok=True)
 
