@@ -6,7 +6,7 @@ from models import model_picker
 from tools.utils import get_checkpoint_hparams
 
 
-def export(args: argparse.Namespace) -> None:
+def export(args: argparse.Namespace) -> str:
     """Export the model to ONNX or to TorchScript.
 
     Args:
@@ -27,13 +27,17 @@ def export(args: argparse.Namespace) -> None:
         forestock.to_onnx(
             f"exports/{args.type.lower()}/{args.name}.onnx", sample, export_params=True
         )
+        ext = "onnx"
     elif args.type.lower() == "torchscript":
         script = forestock.to_torchscript()
         torch.jit.save(script, f"exports/{args.type.lower()}/{args.name}.pt")
+        ext = "pt"
     else:
         raise ValueError(
             f"Argument type {args.type} not supported! Please use: onnx or torchscript"
         )
+
+    return f"exports/{args.type.lower()}/{args.name}.{ext}"
 
 
 if __name__ == "__main__":

@@ -2,10 +2,10 @@ import os
 import argparse
 import streamlit as st
 
-# from test import test
+from test import test
 from train import train
 from infer import inference
-from onnx import export_onnx
+from export import export
 from datetime import datetime as dt
 from tools.plots import ohlc_chart
 from typing import Any, Dict, Tuple
@@ -55,7 +55,7 @@ def sidebar(args: argparse.Namespace, conf: Dict) -> argparse.Namespace:
 
     st.sidebar.subheader("Targets")
     target_name = st.sidebar.selectbox(
-        "Target column for training", conf["targets"], index=3
+        "Target column for training (only for regression)", conf["targets"], index=3
     )
     args.target_idx = conf["targets"].index(target_name)
 
@@ -65,7 +65,10 @@ def sidebar(args: argparse.Namespace, conf: Dict) -> argparse.Namespace:
 
     # TODO: Select loggers
     st.sidebar.subheader("Logger")
-    st.sidebar.selectbox("How to log metrics?", conf["loggers"])
+    st.sidebar.selectbox(
+        "How to log metrics? (Only Tensorboard supported for the moment...",
+        conf["loggers"],
+    )
 
     return args
 
@@ -97,10 +100,8 @@ def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Na
             if not use_dates:
                 col1, col2, col3 = st.columns(3)
 
-                # Get the ticker name
+                # Get the ticker name and interval
                 args.ticker = col1.text_input("Ticker")
-
-                # Get interval
                 args.interval = col2.selectbox("Interval", conf["intervals"], index=8)
 
                 # Limit periods based on interval
@@ -227,17 +228,29 @@ def pick_task(conf: Dict, n: int = 1) -> str:
 
 
 def run_task(task: str, args: argparse.Namespace, n: int = 1) -> Any:
+    """Run the selected task! It can be: to train a new model, to test
+    an already trained one, to export it or to do inference.
+
+    Args:
+        task (str): task selected before.
+        args (argparse.Namespace): arguments for that task.
+        n (int, optional): Index value. Defaults to 1.
+
+    Returns:
+        Any: Metrics in case of train and test. Prediction in case
+        of inference and the model path in case of export.
+    """
     st.subheader(f"{n}. Run! 🧟")
     task_runned = st.button(f"Launch {task.lower()}")
     try:
         if task_runned and task.lower() == "train":
             return train(args, is_st=True)
-        # elif task_runned and task.lower() == "test":
-        #     return test(args, is_st=True)
+        elif task_runned and task.lower() == "test":
+            return test(args, is_st=True)
         elif task_runned and task.lower() == "inference":
             return inference(args)
         elif task_runned and task.lower() == "export":
-            return export_onnx(args)
+            return export(args)
     except ValueError as ve:
         st.error(ve)
 
@@ -263,6 +276,7 @@ def print_metrics(
 
 
 def main():
+    """All the Streamlit logic is called from this method."""
     # Argparse Namespace will store all the variables to use the modules.
     args = argparse.Namespace()
 

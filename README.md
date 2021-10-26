@@ -5,7 +5,7 @@ A forecasting tool for the stock markets using Deep Neural Networks. It uses Pyt
 ## Train
 An example of the command to start the training process:
 
-    python -m train --ticker SPY --mode reg --version ohlc --interval 1h --period 2y --gpus 1 --max_epochs 36
+    python -m train --ticker NVDA --version ohlc --mode reg --interval 1h --period 2y --gpus 1 --max_epochs 36 --window 42
 
 ## Test
 Command to launch the test on a different ticker:
@@ -14,7 +14,7 @@ Command to launch the test on a different ticker:
 
 It also accepts a CSV file as input to test:
 
-    python -m test --ticker ADA --data ADAUSDT.csv --checkpoint tb_logs/SPY/ohlc --gpus 1
+    python -m test --data ADAUSDT.csv --checkpoint tb_logs/SPY/ohlc --gpus 1
 
 ## Inference (Done)
 
@@ -29,6 +29,8 @@ For ONNX:
 For TorchScript:
 
     python -m infer --data ADAUSDT.csv --type torchscript --model exports/torchscript/adausdt.pt --mode clf
+
+It also accepts the --ticker, --interval and --period options to fetch data from yfinance!
 
 ## Export (Done)
 

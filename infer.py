@@ -8,10 +8,10 @@ from tools.ta import BBANDS, EMA
 from typing import Tuple
 from models import model_picker
 from sklearn.preprocessing import MinMaxScaler
-from tools.utils import get_checkpoint_hparams
+from tools.utils import get_checkpoint_hparams, get_from_csv, get_yfinance
 
 
-def get_50_last(csv_path: str, window: int = 50) -> pd.DataFrame:
+def get_50_last(args: argparse.Namespace) -> pd.DataFrame:
     """Applies the same technical analysis as ticker
     DataModule.
 
@@ -23,13 +23,18 @@ def get_50_last(csv_path: str, window: int = 50) -> pd.DataFrame:
     Returns:
         pd.DataFrame: the data with the ta indicators.
     """
-    df = pd.read_csv(csv_path).set_index("Date")
+    if "csv" in args:
+        df = get_from_csv(args.csv)
+    elif "ticker" in args:
+        df = get_yfinance(args.ticker, args.interval, args.period)
+    else:
+        raise ValueError("Arguments are not correct!")
 
     # Discard everything except Open High Low Close and Volume
     df = df[df.columns[:5]]
 
     # Get the last n window days
-    df = df.iloc[-window:]
+    df = df.iloc[-args.window :]
 
     # Add Bollinger Bands
     bbands = BBANDS(df.Close).fillna(0)
@@ -87,7 +92,7 @@ def unnormalize(
     return y_hat.numpy()
 
 
-def inference(args: argparse.Namespace) -> None:
+def inference(args: argparse.Namespace, is_st: bool = False) -> float:
     """Inference an ONNX model, a TorchScript model or a
     checkpoint.
 
@@ -97,7 +102,7 @@ def inference(args: argparse.Namespace) -> None:
     Raises:
         ValueError: if the mode is not supported raises error.
     """
-    x, sc = normalize(get_50_last(args.data))
+    x, sc = normalize(get_50_last(args))
 
     if args.type.lower() == "basic":
         model, check_path, hp = get_checkpoint_hparams(args.model)
@@ -129,7 +134,10 @@ def inference(args: argparse.Namespace) -> None:
             f"Argument {args.type} is not correct! Please, choose between ONNX / TorchScript / Basic"
         )
 
-    print(f"\033[1;32mPredicted: {y_hat}\033[0m")
+    if not is_st:
+        print(f"\033[1;32mPredicted: {y_hat}\033[0m")
+
+    return y_hat
 
 
 if __name__ == "__main__":
@@ -139,7 +147,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("--model", type=str, help="Inputs: File or checkpoint")
     parser.add_argument("--mode", type=str, help="Inputs: Reg or Clf")
-    parser.add_argument("--data", type=str, help="Path to the CSV data")
+    parser.add_argument("--csv", type=str, help="Path to the CSV data")
+    parser.add_argument("--ticker", type=str, help="Ticker name")
+    parser.add_argument("--interval", type=str, help="Interval of time")
+    parser.add_argument("--period", type=str, help="Num of ticks to fetch")
+    parser.add_argument(
+        "--window", type=int, default=50, help="Num. of days to look back"
+    )
 
     args = parser.parse_args()
     inference(args)
