@@ -78,6 +78,7 @@ def get_ticker_args(args: argparse.Namespace) -> str:
 def get_checkpoint_hparams(
     path: str, checkpoint_idx: int = -1
 ) -> Tuple[str, str, Dict]:
+    path = path[:-1] if path[-1] == "/" else path
     all_checks = os.listdir(f"{path}/checkpoints")
     checkpoint = f"{path}/checkpoints/{all_checks[checkpoint_idx]}"
     model_mode = path.split("/")[-1]

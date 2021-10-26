@@ -18,8 +18,8 @@ def create_folders() -> None:
     if os.path.exists("tb_logs") is False:
         os.makedirs("tb_logs", exist_ok=True)
 
-    if os.path.exists("onnx_models") is False:
-        os.makedirs("onnx_models", exist_ok=True)
+    if os.path.exists("exports") is False:
+        os.makedirs("exports", exist_ok=True)
 
     if os.path.exists("tickers_test") is False:
         os.makedirs("tickers_test", exist_ok=True)

@@ -6,4 +6,5 @@ tickers_test/
 *.png
 *.csv
 *.onnx
+*.pt
 *.ckpt

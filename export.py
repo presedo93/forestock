@@ -7,21 +7,32 @@ from tools.utils import get_checkpoint_hparams
 
 
 def export(args: argparse.Namespace) -> None:
-    if os.path.exists("onnx_models") is False:
-        os.makedirs("onnx_models", exist_ok=True)
+    if os.path.exists(f"exports/{args.type.lower()}") is False:
+        os.makedirs(f"exports/{args.type.lower()}", exist_ok=True)
 
     model, check_path, _ = get_checkpoint_hparams(args.checkpoint)
 
     # Save the model
     forestock = model_picker(model).load_from_checkpoint(check_path)
-    sample = torch.randn((1, 11, 50))
-    forestock.to_onnx(f"onnx_models/{args.onnx}", sample, export_params=True)
+    if args.type.lower() == "onnx":
+        sample = torch.randn((1, 11, 50))
+        forestock.to_onnx(
+            f"exports/{args.type.lower()}/{args.name}.onnx", sample, export_params=True
+        )
+    elif args.type.lower() == "torchscript":
+        script = forestock.to_torchscript()
+        torch.jit.save(script, f"exports/{args.type.lower()}/{args.name}.pt")
+    else:
+        raise ValueError(
+            f"Argument type {args.type} not supported! Please use: onnx or torchscript"
+        )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint to load")
-    parser.add_argument("--onnx", type=str, help="Name of the ONNX file")
+    parser.add_argument("--type", type=str, help="ONNX / TorchScript export type")
+    parser.add_argument("--name", type=str, help="Name of the ONNX / Torchscript file")
 
     args = parser.parse_args()
     export(args)
