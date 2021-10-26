@@ -90,9 +90,7 @@ def get_checkpoint_hparams(
 
 
 def process_output(
-    predicts: list,
-    scaler: MinMaxScaler,
-    mode: str,
+    predicts: list, scaler: MinMaxScaler, mode: str
 ) -> Tuple[np.array, np.array]:
     # Get the targets
     y_true = torch.cat(list(map(lambda x: x[0], predicts)))

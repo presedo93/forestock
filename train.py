@@ -56,11 +56,7 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[go.Figure, Dic
         callbacks += [progress_bar]
 
     # Create the trainer with the params.
-    trainer = pl.Trainer.from_argparse_args(
-        args,
-        logger=tb_logger,
-        callbacks=callbacks,
-    )
+    trainer = pl.Trainer.from_argparse_args(args, logger=tb_logger, callbacks=callbacks)
 
     # Find the optimal learning rate.
     if args.auto_lr_find:
