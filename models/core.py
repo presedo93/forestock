@@ -98,12 +98,12 @@ class CoreForestock(pl.LightningModule):
         metrics = {}
 
         if "train" in mode or "all" in mode:
-            metrics["train"] = self.train_metrics.compute()
+            metrics["Train"] = self.train_metrics.compute()
         if "val" in mode or "all" in mode:
-            metrics["val"] = self.val_metrics.compute()
+            metrics["Validation"] = self.val_metrics.compute()
         if "test" in mode or "all" in mode:
-            metrics["test"] = self.test_metrics.compute()
+            metrics["Test"] = self.test_metrics.compute()
         if "pred" in mode or "all" in mode:
-            metrics["pred"] = self.pred_metrics.compute()
+            metrics["Predict"] = self.pred_metrics.compute()
 
         return metrics

@@ -52,6 +52,19 @@ def get_from_csv(csv: Any) -> pd.DataFrame:
     return pd.read_csv(csv).set_index("Date")
 
 
+def parse_metrics(key: str) -> str:
+    if "r2score" in key:
+        return "R2 Score"
+    elif "mse" in key:
+        return "Root Mean Square Error"
+    elif "acc" in key:
+        return "Accuracy"
+    elif "recall" in key:
+        return "Recall"
+
+    return "None"
+
+
 def get_ticker_args(args: argparse.Namespace) -> str:
     """Get the ticker from the args or from the csv
     parameter.

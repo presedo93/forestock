@@ -10,7 +10,7 @@ from datetime import datetime as dt
 from tools.plots import ohlc_chart
 from typing import Any, Dict, Tuple
 from models import available_models, desc_picker
-from tools.utils import get_yfinance, get_from_csv, open_conf
+from tools.utils import get_yfinance, get_from_csv, open_conf, parse_metrics
 
 
 def create_folders() -> None:
@@ -151,10 +151,13 @@ def data_source(args: argparse.Namespace, conf: Dict, n: int = 1) -> argparse.Na
     return args
 
 
-def model_selector(args: argparse.Namespace, n: int = 1) -> argparse.Namespace:
+def model_selector(
+    task: str, args: argparse.Namespace, n: int = 1
+) -> argparse.Namespace:
     """Logic to select the model.
 
     Args:
+        task (str): task selected before.
         args (argparse.Namespace): namespace with the arguments
         already selected.
         n (int, optional): Index number. Defaults to 2.
@@ -165,7 +168,8 @@ def model_selector(args: argparse.Namespace, n: int = 1) -> argparse.Namespace:
     st.subheader(f"{n}. Model selector! 🏗️")
     st.markdown("There is a list of models that can be selected to give them a try")
 
-    use_check = st.checkbox("Load from a checkpoint", value=False)
+    check = True if task.lower() not in ["train"] else False
+    use_check = st.checkbox("Load from a checkpoint", value=check)
     if use_check:
         col1, col2 = st.columns(2)
         st.markdown("Select a checkpoint.")
@@ -255,24 +259,20 @@ def run_task(task: str, args: argparse.Namespace, n: int = 1) -> Any:
         st.error(ve)
 
 
-def print_metrics(
-    task: str, args: argparse.Namespace, values: Tuple, n: int = 1
-) -> None:
+def print_metrics(values: Tuple, n: int = 1) -> None:
     st.subheader(f"{n}. Metrics! 🗿")
 
     fig, metrics = values
-    # if args.mode == "reg":
-    metric_name = "Mean Squared Error"
-    # else:
-    # metric_name = "Accuracy"
-    st.markdown(
-        f"<span style='color:green; font-weight: bold'>{task} Completed! Printing some metrics...</span>",
-        unsafe_allow_html=True,
-    )
-    st.metric(metric_name, round(float(metrics), 4))
+    st.markdown("Lets see some results!")
+    for key, met in metrics.items():
+        st.markdown(f"**{key}** metrics:")
+        cols = st.columns(len(met))
+        for idx, (key, val) in enumerate(met.items()):
+            cols[idx].metric(parse_metrics(key), round(float(val), 4))
 
     # Plot some results
-    st.pyplot(fig)
+    st.markdown("And the resulting figure with the predictions")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def main():
@@ -311,7 +311,7 @@ def main():
         n += 1
 
     # Model selector subheader
-    args = model_selector(args, n)
+    args = model_selector(task, args, n)
     n += 1
 
     if task.lower() in ["train"] and "checkpoint" not in args:
@@ -324,7 +324,7 @@ def main():
     n += 1
 
     if task.lower() in ["train", "test"] and vals is not None:
-        print_metrics(task, args, vals, n)
+        print_metrics(vals, n)
         n += 1
 
 

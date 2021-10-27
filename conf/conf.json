@@ -4,5 +4,5 @@
     "tasks":            ["Train", "Test", "Inference", "Export"],
     "targets":          ["Open", "High", "Low", "Close"],
     "loggers":          ["Tensorboard", "WandB", "Aim"],
-    "metrics":          ["Accuracy", "Recall", "R2 score", "MSE"]
+    "metrics":          ["Accuracy", "Recall", "R2 score", "Root Mean Square Error"]
 }

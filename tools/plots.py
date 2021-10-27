@@ -56,7 +56,7 @@ def plot_result(
     elif mode.lower() == "clf":
         y = np.where((y_true == 1) & (y_hat == 1), 1, np.nan) * df.Close.mean()
         fig.add_trace(
-            go.Scatter(x=df.index[window:], y=y, name="Here", mode="markers"),
+            go.Scatter(x=df.index[window:], y=y, name="Event", mode="markers"),
             row=1,
             col=1,
         )
