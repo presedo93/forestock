@@ -24,7 +24,7 @@ class OHLCForestock(CoreForestock):
         )
 
         self.fc1 = torch.nn.Linear(self.hparams.window * 2, 64)
-        self.fc2 = torch.nn.Linear(64, self.hparams.outs)
+        self.fc2 = torch.nn.Linear(64, 1)
 
     def forward(self, x) -> torch.Tensor:
         out_ohlc, _ = self.ohlc(x[:, :5])

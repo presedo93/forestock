@@ -38,7 +38,7 @@ class BBandsForestock(CoreForestock):
 
         self.fc1 = torch.nn.Linear(self.hparams.window * 4, 128)
         self.fc2 = torch.nn.Linear(128, 64)
-        self.fc3 = torch.nn.Linear(64, self.hparams.outs)
+        self.fc3 = torch.nn.Linear(64, 1)
 
     def forward(self, x) -> torch.Tensor:
         out_ohlc, _ = self.ohlc(x[:, :5])

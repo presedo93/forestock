@@ -13,7 +13,7 @@ class LinearsForestock(CoreForestock):
         self.bn1 = torch.nn.BatchNorm1d(128)
         self.fc2 = torch.nn.Linear(128, 64)
         self.bn2 = torch.nn.BatchNorm1d(64)
-        self.fc3 = torch.nn.Linear(64, self.hparams.outs)
+        self.fc3 = torch.nn.Linear(64, 1)
 
     def forward(self, x) -> torch.Tensor:
         y = self.bn1(torch.sigmoid(self.fc1(x[..., -1])))

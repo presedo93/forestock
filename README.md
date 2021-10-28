@@ -59,10 +59,5 @@ For stdout:
 
 Features that are still pending to be implemented.
 
-- [x] Docker
-- [x] Train fetching from yfinance.
-- [x] Train form a CSV file.
-- [x] Support a model selector.
-- [x] Train starting from a checkpoint.
-- [ ] Check how to freeze layers.
-- [ ] Support several steps.
+- [ ] Streamlit section to select strategy for classification.
+- [ ] Travis CI/CD.

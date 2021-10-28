@@ -59,9 +59,10 @@ def sidebar(args: argparse.Namespace, conf: Dict) -> argparse.Namespace:
     )
     args.target_idx = conf["targets"].index(target_name)
 
-    # TODO: Select metrics
     st.sidebar.subheader("Metrics")
-    st.sidebar.multiselect("Metrics to use", conf["metrics"])
+    metrics = st.sidebar.multiselect("Metrics to use", conf["metrics"])
+    metrics = [parse_metrics(m) for m in metrics]
+    args.metrics = " ".join(metrics)
 
     # TODO: Select loggers
     st.sidebar.subheader("Logger")
@@ -224,7 +225,7 @@ def pick_task(conf: Dict, n: int = 1) -> str:
     Returns:
         str: task selected.
     """
-    st.subheader(f"{n}. Task! 🧟")
+    st.subheader(f"{n}. Task! 📝")
     st.markdown("It is time to select which task to perform.")
     task = st.selectbox("Tasks supported", conf["tasks"])
 
@@ -260,19 +261,50 @@ def run_task(task: str, args: argparse.Namespace, n: int = 1) -> Any:
 
 
 def print_metrics(values: Tuple, n: int = 1) -> None:
+    """Show the metrics (like R2 Score or Recall) from the task that
+    has been run and the plot of the data fetched.
+
+    Args:
+        values (Tuple): tuple that has the metrics dict and the figure.
+        n (int, optional): Index value. Defaults to 1.
+    """
     st.subheader(f"{n}. Metrics! 🗿")
 
     fig, metrics = values
     st.markdown("Lets see some results!")
     for key, met in metrics.items():
         st.markdown(f"**{key}** metrics:")
-        cols = st.columns(len(met))
-        for idx, (key, val) in enumerate(met.items()):
-            cols[idx].metric(parse_metrics(key), round(float(val), 4))
+        if len(met) > 0:
+            cols = st.columns(len(met))
+            for idx, (key, val) in enumerate(met.items()):
+                cols[idx].metric(parse_metrics(key), round(float(val), 4))
 
     # Plot some results
     st.markdown("And the resulting figure with the predictions")
     st.plotly_chart(fig, use_container_width=True)
+
+
+def inference_selector(args: argparse.Namespace, n: int = 1) -> argparse.Namespace:
+    st.subheader(f"{n}. Exported models! 👷")
+    col1, col2 = st.columns(2)
+    st.markdown("Select a exported mode.")
+    export_mode = ["-", "ONNX", "TorchScript"]
+    sel_export = col1.selectbox("Select mode", export_mode)
+
+    # Select a checkpoint to start from
+    export_files = ["-"]
+    if sel_export != "-":
+        export_files += os.listdir(f"exports/{sel_export.lower()}")
+    sel_model = col2.selectbox("Select model", export_files)
+
+    # TODO: Store the variable model!!
+    if sel_export != "-" and sel_model != "-":
+        args.checkpoint = os.path.join("exports", sel_export, sel_model)
+
+    return args
+
+
+# def print_prediction(value: float, n: int = 1) -> None:
 
 
 def main():
@@ -311,7 +343,10 @@ def main():
         n += 1
 
     # Model selector subheader
-    args = model_selector(task, args, n)
+    if task.lower() != "inference":
+        args = model_selector(task, args, n)
+    else:
+        args = inference_selector(args, n)
     n += 1
 
     if task.lower() in ["train"] and "checkpoint" not in args:

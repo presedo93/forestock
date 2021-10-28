@@ -12,7 +12,6 @@ def train_args(basic_args):
     basic_args.fast_dev_run = True
 
     # Training params
-    basic_args.outs = 1
     basic_args.learning_rate = 1e-3
     basic_args.batch_size = 16
     basic_args.workers = 4

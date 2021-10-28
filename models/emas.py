@@ -24,7 +24,7 @@ class EmasForestock(CoreForestock):
         )
 
         self.fc1 = torch.nn.Linear(self.hparams.window * 2, 64)
-        self.fc2 = torch.nn.Linear(64, self.hparams.outs)
+        self.fc2 = torch.nn.Linear(64, 1)
 
     def forward(self, x) -> torch.Tensor:
         out_ema, _ = self.emas(x[:, 9:11])

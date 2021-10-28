@@ -61,6 +61,15 @@ def parse_metrics(key: str) -> str:
         return "Accuracy"
     elif "recall" in key:
         return "Recall"
+    # And the other way around
+    elif "R2 Score" in key:
+        return "r2score"
+    elif "Root Mean Square Error" in key:
+        return "mse"
+    elif "Accuracy" in key:
+        return "acc"
+    elif "Recall" in key:
+        return "recall"
 
     return "None"
 

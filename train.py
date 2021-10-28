@@ -91,10 +91,9 @@ if __name__ == "__main__":
     parser.add_argument("--period", type=str, help="Num of ticks to fetch")
     parser.add_argument("--window", type=int, help="Num. of days to look back")
     parser.add_argument("--checkpoint", type=str, help="Path to the checkpoint to load")
-    parser.add_argument("--metrics", type=str, help="Metrics to use")
+    parser.add_argument("--metrics", type=str, default="", help="Metrics to use")
 
     # Training type params
-    parser.add_argument("--outs", type=int, default=1, help="Number of outputs")
     parser.add_argument(
         "--learning_rate", type=float, default=1e-3, help="Learning Rate"
     )
