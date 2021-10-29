@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import onnxruntime as ort
 
-from tools.ta import BBANDS, EMA
 from typing import Tuple
+from tools.ta import apply_ta
 from models import model_picker
 from sklearn.preprocessing import MinMaxScaler
 from tools.utils import get_checkpoint_hparams, get_from_csv, get_yfinance
@@ -30,19 +30,11 @@ def get_50_last(args: argparse.Namespace) -> pd.DataFrame:
     else:
         raise ValueError("Arguments are not correct!")
 
-    # Discard everything except Open High Low Close and Volume
-    df = df[df.columns[:5]]
+    # Apply Technical Indicators
+    df = apply_ta(df)
 
     # Get the last n window days
     df = df.iloc[-args.window :]
-
-    # Add Bollinger Bands
-    bbands = BBANDS(df.Close).fillna(0)
-    df = pd.concat([df, bbands], axis=1)
-
-    df["PCT"] = df["Close"].pct_change(fill_method="ffill")
-    df["EMA50"] = EMA(df["Close"], 50, fillna=True)
-    df["EMA200"] = EMA(df["Close"], 200, fillna=True)
 
     return df
 
@@ -103,10 +95,10 @@ def inference(args: argparse.Namespace, is_st: bool = False) -> float:
         ValueError: if the mode is not supported raises error.
     """
     x, sc = normalize(get_50_last(args))
+    mode = "clf" if "_clf" in args.model else "reg"
 
     if args.type.lower() == "basic":
         model, check_path, hp = get_checkpoint_hparams(args.model)
-        assert hp["mode"] == args.mode
 
         forestock = model_picker(model).load_from_checkpoint(check_path)
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -114,7 +106,7 @@ def inference(args: argparse.Namespace, is_st: bool = False) -> float:
 
         x = torch.tensor(x, dtype=torch.float32).T.unsqueeze(0)
         forestock.eval()
-        y_hat = unnormalize(forestock(x.to(device)), sc, args.mode, args.type)[0, 0]
+        y_hat = unnormalize(forestock(x.to(device)), sc, hp["mode"], args.type)[0, 0]
     elif args.type.lower() == "onnx":
         forestock = ort.InferenceSession(
             args.model, providers=["CUDAExecutionProvider"]
@@ -124,11 +116,11 @@ def inference(args: argparse.Namespace, is_st: bool = False) -> float:
         x = np.expand_dims(x.T.astype(np.float32), axis=0)
         f_inputs = {inputs: x}
         out = forestock.run(None, f_inputs)
-        y_hat = unnormalize(out, sc, args.mode, args.type)[0, 0]
+        y_hat = unnormalize(out, sc, mode, args.type)[0, 0]
     elif args.type.lower() == "torchscript":
         forestock = torch.jit.load(args.model)
         x = torch.tensor(x, dtype=torch.float32).T.unsqueeze(0)
-        y_hat = unnormalize(forestock(x), sc, args.mode, args.type)[0, 0]
+        y_hat = unnormalize(forestock(x), sc, mode, args.type)[0, 0]
     else:
         raise ValueError(
             f"Argument {args.type} is not correct! Please, choose between ONNX / TorchScript / Basic"
@@ -146,7 +138,6 @@ if __name__ == "__main__":
         "--type", type=str, help="Inputs: ONNX / TorchScript / Checkpoint"
     )
     parser.add_argument("--model", type=str, help="Inputs: File or checkpoint")
-    parser.add_argument("--mode", type=str, help="Inputs: Reg or Clf")
     parser.add_argument("--csv", type=str, help="Path to the CSV data")
     parser.add_argument("--ticker", type=str, help="Ticker name")
     parser.add_argument("--interval", type=str, help="Interval of time")

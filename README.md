@@ -20,15 +20,15 @@ It also accepts a CSV file as input to test:
 
 For a checkpoint:
 
-    python -m infer --data ADAUSDT.csv --type basic --model tb_logs/ADAUSDT/ohlc_clf --mode clf
+    python -m infer --csv ADAUSDT.csv --type basic --model tb_logs/ADAUSDT/ohlc_clf
 
 For ONNX:
 
-    python -m infer --data ADAUSDT.csv --type onnx --model exports/onnx/adausdt.onnx --mode clf
+    python -m infer --csv ADAUSDT.csv --type onnx --model exports/onnx/adausdt_clf.onnx
 
 For TorchScript:
 
-    python -m infer --data ADAUSDT.csv --type torchscript --model exports/torchscript/adausdt.pt --mode clf
+    python -m infer --csv ADAUSDT.csv --type torchscript --model exports/torchscript/adausdt_clf.pt
 
 It also accepts the --ticker, --interval and --period options to fetch data from yfinance!
 

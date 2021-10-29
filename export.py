@@ -18,26 +18,29 @@ def export(args: argparse.Namespace) -> str:
     if os.path.exists(f"exports/{args.type.lower()}") is False:
         os.makedirs(f"exports/{args.type.lower()}", exist_ok=True)
 
-    model, check_path, _ = get_checkpoint_hparams(args.checkpoint)
+    model, check_path, hp = get_checkpoint_hparams(args.checkpoint)
 
     # Save the model
     forestock = model_picker(model).load_from_checkpoint(check_path)
+    mode = hp["mode"]
     if args.type.lower() == "onnx":
         sample = torch.randn((1, 11, 50))
         forestock.to_onnx(
-            f"exports/{args.type.lower()}/{args.name}.onnx", sample, export_params=True
+            f"exports/{args.type.lower()}/{args.name}_{mode}.onnx",
+            sample,
+            export_params=True,
         )
         ext = "onnx"
     elif args.type.lower() == "torchscript":
         script = forestock.to_torchscript()
-        torch.jit.save(script, f"exports/{args.type.lower()}/{args.name}.pt")
+        torch.jit.save(script, f"exports/{args.type.lower()}/{args.name}_{mode}.pt")
         ext = "pt"
     else:
         raise ValueError(
             f"Argument type {args.type} not supported! Please use: onnx or torchscript"
         )
 
-    return f"exports/{args.type.lower()}/{args.name}.{ext}"
+    return f"exports/{args.type.lower()}/{args.name}_{mode}.{ext}"
 
 
 if __name__ == "__main__":

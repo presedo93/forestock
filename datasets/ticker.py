@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 
-from tools.ta import BBANDS, EMA
+from tools.ta import apply_ta
 from sklearn.preprocessing import MinMaxScaler
 from typing import Dict, List, Optional, Union
 from tools.utils import get_yfinance, get_from_csv
@@ -71,22 +71,8 @@ class TickerDataModule(pl.LightningDataModule):
                 f"{self.ticker} data couldn't be fetched for these period and intervals."
             )
 
-        # And discard everything except Open High Low Close and Volume - Columns 0 to 4
-        self.df = self.df[self.df.columns[:5]]
-
-        # Set index to datetime
-        self.df.index = pd.to_datetime(self.df.index, format="%Y-%m-%d %H:%M:%S")
-
-        # Add Bollinger Bands - Columns 5 to 7
-        bbands = BBANDS(self.df.Close).fillna(0)
-        self.df = pd.concat([self.df, bbands], axis=1)
-
-        # Add percentage change - Column 8
-        self.df["PCT"] = self.df["Close"].pct_change(fill_method="ffill")
-
-        # Add EMA 50 & EMA 200 - Columns 9 to 10
-        self.df["EMA50"] = EMA(self.df["Close"], 50, fillna=True)
-        self.df["EMA200"] = EMA(self.df["Close"], 200, fillna=True)
+        # And apply the technical indicators
+        self.df = apply_ta(self.df)
 
         # Normalize the data
         train_size = int(self.split * len(self.df.index))
