@@ -8,6 +8,14 @@ from plotly.subplots import make_subplots
 
 
 def ohlc_chart(df: pd.DataFrame) -> go.Figure:
+    """Create a OHLC candlestick chart from a ticker dataframe.
+
+    Args:
+        df (pd.DataFrame): ticker dataframe to plot.
+
+    Returns:
+        go.Figure: plotly figure.
+    """
     df = df[df.columns[:5]]
     df.index = pd.to_datetime(df.index, format="%Y-%m-%d %H:%M:%S")
 
@@ -47,6 +55,21 @@ def plot_result(
     mode: str,
     split: float,
 ) -> go.Figure:
+    """Plot the results of the classification or the regression tasks.
+    It adds the plots in the candlestick chart.
+
+    Args:
+        df (pd.DataFrame): data used to do the prediction.
+        y_true (np.array): targets.
+        y_hat (np.array): predictions.
+        path (str): path to store the figure.
+        mode (str): clf or reg.
+        split (float): plot a vertical line based on the percentage of split
+        if it is bigger than 0.
+
+    Returns:
+        go.Figure: updated figure.
+    """
     fig = ohlc_chart(df)
 
     window = len(df.index) - len(y_true)
@@ -56,7 +79,17 @@ def plot_result(
     elif mode.lower() == "clf":
         y = np.where((y_true == 1) & (y_hat == 1), 1, np.nan) * df.Close.mean()
         fig.add_trace(
-            go.Scatter(x=df.index[window:], y=y, name="Event", mode="markers"),
+            go.Scatter(x=df.index[window:], y=y_true, name="Target", mode="markers"),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(x=df.index[window:], y=y_hat, name="Pred", mode="markers"),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(x=df.index[window:], y=y, name="Target == Pred", mode="markers"),
             row=1,
             col=1,
         )

@@ -11,6 +11,11 @@ from torch.utils.data import DataLoader, TensorDataset, Subset, random_split
 
 
 class TickerDataModule(pl.LightningDataModule):
+    """Custom ticker data module class that handles the desired data. It
+    can work with CSV files, or fetch data from yfinance. It can transform
+    the data to perform classificiation or regression tasks.
+    """
+
     def __init__(
         self,
         mode: str,
@@ -130,6 +135,17 @@ class TickerDataModule(pl.LightningDataModule):
     def window_series(
         data: np.array, target: np.array, window: int, mode: str
     ) -> TensorDataset:
+        """Transform the data in windows of n steps.
+
+        Args:
+            data (np.array): data to trasnform.
+            target (np.array): target for training.
+            window (int): number of steps for earch window.
+            mode (str): clf or reg
+
+        Returns:
+            TensorDataset: Tensor Dataset with training and targets data.
+        """
         x = torch.tensor(data, dtype=torch.float)
         x = x.unfold(0, window, 1)[:-1]
         y = torch.tensor(target, dtype=torch.float).unsqueeze(1)[window:]
@@ -138,6 +154,16 @@ class TickerDataModule(pl.LightningDataModule):
 
     @staticmethod
     def target_clf(data: pd.DataFrame, window: int) -> np.array:
+        """This method "creates" the targets for the classification task.
+        In the future, it will accept conditions to build the "strategy"
+
+        Args:
+            data (pd.DataFrame): dataframe will the ohlc data and the ta.
+            window (int): window
+
+        Returns:
+            np.array: 1s where the conditions are met.
+        """
         half = int(window / 2)
         target = np.where(
             (data.EMA50 < data.Close)

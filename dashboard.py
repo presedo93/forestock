@@ -287,6 +287,16 @@ def print_metrics(values: Tuple, n: int = 1) -> None:
 def export_model(
     args: argparse.Namespace, conf: Dict, n: int = 1
 ) -> argparse.Namespace:
+    """Select the checkpoint to export to a ONNX or TorchScript model.
+
+    Args:
+        args (argparse.Namespace): arguments selected.
+        conf (Dict): config parameters.
+        n (int, optional): index values. Defaults to 1.
+
+    Returns:
+        argparse.Namespace: updated arguments
+    """
     st.subheader(f"{n}. Save model! 💾")
     st.markdown(
         "Export and store the model to ONNX or TorchScript! In the inference task, both exports can be tested."
@@ -300,6 +310,12 @@ def export_model(
 
 
 def download_model(conf: Dict, n: int = 1) -> None:
+    """Download a model based on the ones already exported.
+
+    Args:
+        conf (Dict): config parameters
+        n (int, optional): index value. Defaults to 1.
+    """
     st.subheader(f"{n}. Download the model! 📥")
     col1, col2 = st.columns(2)
 
@@ -333,6 +349,16 @@ def download_model(conf: Dict, n: int = 1) -> None:
 def inference_selector(
     args: argparse.Namespace, conf: Dict, n: int = 1
 ) -> argparse.Namespace:
+    """Selects an exported model to do inference.
+
+    Args:
+        args (argparse.Namespace): arguments selected
+        conf (Dict): config parameters
+        n (int, optional): index value. Defaults to 1.
+
+    Returns:
+        argparse.Namespace: updated arguments.
+    """
     st.subheader(f"{n}. Exported models! 👷")
     col1, col2, col3 = st.columns(3)
 
@@ -356,6 +382,12 @@ def inference_selector(
 
 
 def print_prediction(value: float, n: int = 1) -> None:
+    """Prints the prediction metric.
+
+    Args:
+        value (float): prediction value
+        n (int, optional): index value. Defaults to 1.
+    """
     st.subheader(f"{n}. Inference result! 🤖")
     st.markdown("And the result is...")
     st.metric("Predicted", float(value))

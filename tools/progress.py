@@ -4,6 +4,13 @@ from pytorch_lightning.callbacks.progress import ProgressBar
 
 
 class StProgressBar(ProgressBar):
+    """This class overrides the Progress Bar of Pytorch Lightning. It main purpose
+    is to show the task progress in the streamlit interface.
+
+    Args:
+        ProgressBar ([type]): Pytorch Lightning progress bar.
+    """
+
     def __init__(self, refresh_rate: int = 1, process_position: int = 0):
         super().__init__(refresh_rate=refresh_rate, process_position=process_position)
 
