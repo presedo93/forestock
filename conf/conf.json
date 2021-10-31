@@ -4,5 +4,6 @@
     "tasks":            ["Train", "Test", "Export", "Inference"],
     "targets":          ["Open", "High", "Low", "Close"],
     "loggers":          ["Tensorboard", "WandB", "Aim"],
+    "exports":          ["ONNX", "TorchScript"],
     "metrics":          ["Accuracy", "Recall", "R2 Score", "Root Mean Square Error"]
 }

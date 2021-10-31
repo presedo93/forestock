@@ -253,7 +253,7 @@ def run_task(task: str, args: argparse.Namespace, n: int = 1) -> Any:
         elif task_runned and task.lower() == "test":
             return test(args, is_st=True)
         elif task_runned and task.lower() == "inference":
-            return inference(args)
+            return inference(args, is_st=True)
         elif task_runned and task.lower() == "export":
             return export(args)
     except ValueError as ve:
@@ -284,27 +284,81 @@ def print_metrics(values: Tuple, n: int = 1) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-def inference_selector(args: argparse.Namespace, n: int = 1) -> argparse.Namespace:
-    st.subheader(f"{n}. Exported models! 👷")
+def export_model(
+    args: argparse.Namespace, conf: Dict, n: int = 1
+) -> argparse.Namespace:
+    st.subheader(f"{n}. Save model! 💾")
+    st.markdown(
+        "Export and store the model to ONNX or TorchScript! In the inference task, both exports can be tested."
+    )
+
     col1, col2 = st.columns(2)
+    args.type = col1.selectbox("Export", conf["exports"])
+    args.name = col2.text_input("File name")
+
+    return args
+
+
+def download_model(conf: Dict, n: int = 1) -> None:
+    st.subheader(f"{n}. Download the model! 📥")
+    col1, col2 = st.columns(2)
+
     st.markdown("Select a exported mode.")
-    export_mode = ["-", "ONNX", "TorchScript"]
+    export_mode = ["-"] + conf["exports"]
     sel_export = col1.selectbox("Select mode", export_mode)
 
-    # Select a checkpoint to start from
+    # Select a model
+    export_files = ["-"]
+    if sel_export != "-":
+        export_files += os.listdir(f"exports/{sel_export.lower()}")
+    sel_model = col2.selectbox("Select file", export_files)
+
+    if sel_export != "-" and sel_model != "-":
+        type = sel_export.lower()
+        path = os.path.join("exports", type, sel_model)
+    else:
+        path = ""
+
+    if path != "":
+        file_name = path.split("/")[-1]
+        with open(path, "rb") as file:
+            st.download_button(
+                "Download",
+                data=file,
+                file_name=file_name,
+                mime="application/octet-stream",
+            )
+
+
+def inference_selector(
+    args: argparse.Namespace, conf: Dict, n: int = 1
+) -> argparse.Namespace:
+    st.subheader(f"{n}. Exported models! 👷")
+    col1, col2, col3 = st.columns(3)
+
+    st.markdown("Select a exported mode.")
+    export_mode = ["-"] + conf["exports"]
+    sel_export = col1.selectbox("Select mode", export_mode)
+
+    # Select a model
     export_files = ["-"]
     if sel_export != "-":
         export_files += os.listdir(f"exports/{sel_export.lower()}")
     sel_model = col2.selectbox("Select model", export_files)
 
-    # TODO: Store the variable model!!
     if sel_export != "-" and sel_model != "-":
-        args.checkpoint = os.path.join("exports", sel_export, sel_model)
+        args.type = sel_export.lower()
+        args.model = os.path.join("exports", args.type, sel_model)
+
+    args.window = col3.number_input("Window size", value=50, step=1)
 
     return args
 
 
-# def print_prediction(value: float, n: int = 1) -> None:
+def print_prediction(value: float, n: int = 1) -> None:
+    st.subheader(f"{n}. Inference result! 🤖")
+    st.markdown("And the result is...")
+    st.metric("Predicted", float(value))
 
 
 def main():
@@ -346,7 +400,7 @@ def main():
     if task.lower() != "inference":
         args = model_selector(task, args, n)
     else:
-        args = inference_selector(args, n)
+        args = inference_selector(args, conf, n)
     n += 1
 
     if task.lower() in ["train"] and "checkpoint" not in args:
@@ -354,12 +408,26 @@ def main():
         args = model_hyper(args, n)
         n += 1
 
+    if task.lower() == "export":
+        export_model(args, conf, n)
+        n += 1
+
     # Task subheader
     vals = run_task(task, args, n)
+    if vals is not None:
+        st.success(f"{task} done!")
     n += 1
 
     if task.lower() in ["train", "test"] and vals is not None:
         print_metrics(vals, n)
+        n += 1
+
+    if task.lower() == "inference" and vals is not None:
+        print_prediction(vals, n)
+        n += 1
+
+    if task.lower() == "export":
+        download_model(conf, n)
         n += 1
 
 
