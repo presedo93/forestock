@@ -46,7 +46,7 @@ def train(args: argparse.Namespace, is_st: bool = False) -> Tuple[go.Figure, Dic
     )
 
     # Set the callbacks used during the stages.
-    early_stopping = EarlyStopping("loss/valid", patience=6)
+    early_stopping = EarlyStopping("loss/valid", patience=12)
     lr_monitor = LearningRateMonitor(logging_interval="epoch")
     callbacks = [early_stopping, lr_monitor]
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--learning_rate", type=float, default=1e-3, help="Learning Rate"
     )
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument(
         "--workers", type=int, default=4, help="Num of workers for dataloaders"
     )

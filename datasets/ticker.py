@@ -166,8 +166,8 @@ class TickerDataModule(pl.LightningDataModule):
         """
         half = int(window / 2)
         target = np.where(
-            (data.EMA50 < data.Close)
-            & (data.EMA50.shift(-half) > data.Close.shift(-half)),
+            (data.Close < data.EMA50)
+            & (data.Close.shift(-half) < data.EMA50.shift(-half)),
             1,
             0,
         )

@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-def ohlc_chart(df: pd.DataFrame) -> go.Figure:
+def ohlc_chart(df: pd.DataFrame, plot_ta: bool = False) -> go.Figure:
     """Create a OHLC candlestick chart from a ticker dataframe.
 
     Args:
@@ -16,7 +16,6 @@ def ohlc_chart(df: pd.DataFrame) -> go.Figure:
     Returns:
         go.Figure: plotly figure.
     """
-    df = df[df.columns[:5]]
     df.index = pd.to_datetime(df.index, format="%Y-%m-%d %H:%M:%S")
 
     fig = make_subplots(
@@ -40,7 +39,46 @@ def ohlc_chart(df: pd.DataFrame) -> go.Figure:
         row=1,
         col=1,
     )
+
     fig.add_trace(go.Bar(x=df.index, y=df.Volume, showlegend=False), row=2, col=1)
+
+    if plot_ta:
+        for k, ta in df.filter(like="MA").items():
+            fig.add_trace(go.Scatter(x=df.index, y=ta, name=k))
+
+        if "BB_MIDDLE" in df.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index, y=df.BB_MIDDLE, line_color="black", name="BB_MD"
+                ),
+                row=1,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=df.BB_UPPER,
+                    line_color="gray",
+                    line={"dash": "dash"},
+                    name="BB_UP",
+                    opacity=0.5,
+                ),
+                row=1,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=df.BB_LOWER,
+                    line_color="gray",
+                    line={"dash": "dash"},
+                    fill="tonexty",
+                    name="BB_LW",
+                    opacity=0.5,
+                ),
+                row=1,
+                col=1,
+            )
 
     fig.update(layout_xaxis_rangeslider_visible=False)
 
@@ -70,7 +108,7 @@ def plot_result(
     Returns:
         go.Figure: updated figure.
     """
-    fig = ohlc_chart(df)
+    fig = ohlc_chart(df, plot_ta=True)
 
     window = len(df.index) - len(y_true)
     if mode.lower() == "reg":
@@ -78,16 +116,6 @@ def plot_result(
         fig.add_trace(go.Scatter(x=df.index[window:], y=y_hat, name="Prediction"))
     elif mode.lower() == "clf":
         y = np.where((y_true == 1) & (y_hat == 1), 1, np.nan) * df.Close.mean()
-        fig.add_trace(
-            go.Scatter(x=df.index[window:], y=y_true, name="Target", mode="markers"),
-            row=1,
-            col=1,
-        )
-        fig.add_trace(
-            go.Scatter(x=df.index[window:], y=y_hat, name="Pred", mode="markers"),
-            row=1,
-            col=1,
-        )
         fig.add_trace(
             go.Scatter(x=df.index[window:], y=y, name="Target == Pred", mode="markers"),
             row=1,
