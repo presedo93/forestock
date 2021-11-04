@@ -24,7 +24,7 @@ def export(args: argparse.Namespace) -> str:
     forestock = model_picker(model).load_from_checkpoint(check_path)
     mode = hp["mode"]
     if args.type.lower() == "onnx":
-        sample = torch.randn((1, 11, 50))
+        sample = torch.randn((1, 11, hp["window"]))
         forestock.to_onnx(
             f"exports/{args.type.lower()}/{args.name}_{mode}.onnx",
             sample,

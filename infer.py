@@ -11,7 +11,7 @@ from sklearn.preprocessing import MinMaxScaler
 from tools.utils import get_checkpoint_hparams, get_from_csv, get_yfinance
 
 
-def get_50_last(args: argparse.Namespace) -> pd.DataFrame:
+def get_n_last(args: argparse.Namespace) -> pd.DataFrame:
     """Applies the same technical analysis as ticker
     DataModule.
 
@@ -79,9 +79,9 @@ def unnormalize(
         y_hat = (y_hat - sc.min_[3]) / sc.scale_[3]
     else:
         y_hat = torch.tensor(y_hat) if engine.lower() == "onnx" else y_hat
-        y_hat = torch.round(torch.sigmoid(y_hat))
+        y_hat = torch.round(torch.sigmoid(y_hat)).numpy()
 
-    return y_hat.numpy()
+    return y_hat
 
 
 def inference(args: argparse.Namespace, is_st: bool = False) -> float:
@@ -94,7 +94,7 @@ def inference(args: argparse.Namespace, is_st: bool = False) -> float:
     Raises:
         ValueError: if the mode is not supported raises error.
     """
-    x, sc = normalize(get_50_last(args))
+    x, sc = normalize(get_n_last(args))
     mode = "clf" if "_clf" in args.model else "reg"
 
     if args.type.lower() == "basic":

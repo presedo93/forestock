@@ -1,6 +1,23 @@
-# Forestock
+#  Forestock
 
-A forecasting tool for the stock markets using Deep Neural Networks. It uses Pytorch-Lightning as the DL framework and covers from the training steps until the "production" one.
+A forecasting tool for the stock markets using **Deep Neural Networks**! Its main purpose is to be a playground to do some Machine Learning in this unpredictable world. It uses Pytorch-Lightning as the DL framework and covers from the training steps until the inference ones.
+
+## Install
+All the needed dependencies are in the `requirements.txt`. First create the virtual environment (recommended):
+
+	python3 -m venv --system-site-packages ./venv
+Then install the packages:
+
+	pip install -r requirements.txt
+
+If you want to make changes in the source code, this project has some git hooks for `black`, `mypy`, etc. So please, install them via `pre-commit`:
+
+	pre-commit install
+
+Next time a new commit is done,
+
+-----------------------------------------
+**PENDING**
 
 ## Train
 An example of the command to start the training process:
