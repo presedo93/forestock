@@ -28,7 +28,7 @@ All the models can be used for **regressio** or **classification** tasks.
 ### Datasets
 For the moment, there is only one implementation: `ticker.py`. This implementation accepts ticker name, period and interval to fetch the data from `yfinance` or a csv path to directly load it. It uses `torch.unfold()` to create the windows of n size.
 
-It works with both regression and classification tasks. For regression tasks, it selects a column as target. For classification tasks, it creates the target based in the crossovers of EMA 50 and close prices. In a future, it should be able to accept conditions to create the targets "dinamically" (e.g., to make use of other technical indicators or create more complex rules).
+It works with both regression and classification tasks. For **regression** tasks, it selects a column as target. For **classification** tasks, it creates the target based in the crossovers of EMA 50 and close prices. In a future, it should be able to accept conditions to create the targets "dinamically" (e.g., to make use of other technical indicators or create more complex rules).
 
 As coming features, I'd like to create other types of `pl.LightningDataModule` to work for different types of architectures and layers.
 
@@ -83,22 +83,30 @@ And for a TorchScript file:
 
 Just remember that it also accepts the --ticker, --interval and --period options to fetch data from yfinance. This script can be considered as an easy way to test the models recently exported before taking them to production!
 
------------------------------------------
-
 ## Docker
+The easiest way to launch and run forestock is via **Docker**. This project has its own Dockerfile which sets a user (*scientist*), installs the dependencies and labels the GPU usage. So once launched, the container will be able to make use of the GPUs! To build the image and run the container:
 
-    docker run --rm --gpus all -v ${PWD}:/home/scientist/forestock forestock ...
-## Unit tests
-This project has some basic tests done with pytest.
+    docker build -f docker/Dockerfile -t forestock:latest .
+
+    docker run --rm --gpus all -v ${PWD}:/home/scientist/forestock forestock
+
+By default, the container runs the Streamlit interface, so the user can train using it. However, it exits the possibility of overriding the default command and launch any of the stages manually:
+
+    docker run --rm --gpus all -v ${PWD}:/home/scientist/forestock forestock python -m train ...
+
+There is an even easier way of running forestock, using **docker-compose**. There is also a `docker-compose.yaml` that mounts the volumes, builds the image if needed, makes use of the GPUs and restarts automatically if needed! Just run:
+
+    docker-compose up -d --build
+
+## Tests
+In the `tests/` folder, there are two examples of testing using `pytest`. In the `integration/` folder there is an example of a test that runs the train script. Of course, running a whole training for testing it doesn't make any sense... so it is possible to take advantage of Pytorch Lightning's `fast_dev_run` option. It will run through the training script just one batch with dummy data!
 
     python -m pytest --disable-pytest-warnings
 
-For stdout:
-
-    python -m pytest --disable-pytest-warnings -s
+There is another example just testing a method, in a future I'd like to add more testing...
 ## Next steps
+I'd like to put more effort in the classification task. At this moment, to train for classification brings some uncertanty... detecting the event of SMA50 crossing the close price may not be enough. I've tried using the `pos_weight` of the Binary Cross Entropy to compensate the difference in the number of positives and negatives labels, but no big improvement... so, features that would be nice to implement:
 
-Features that are still pending to be implemented.
-
-- [ ] Streamlit section to select strategy for classification.
-- [ ] Travis CI/CD.
+ - [ ] Add the possibility to select or build strategies for classification. Easily changing from a Bollinger Bands strategy to a MACD one...
+ - [ ] New architectures that can work better for classification.
+ - [ ] New Data Modules that fit new architectures.
