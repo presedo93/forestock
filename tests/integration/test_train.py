@@ -30,9 +30,3 @@ def test_training_process(train_args: argparse.Namespace) -> None:
     # Lets assert the returned variables matched the type hint.
     assert isinstance(fig, go.Figure)
     assert isinstance(metrics, dict)
-
-    # Check if the metrics dict has the pertinent keys.
-    assert "train" in metrics.keys()
-    assert "val" in metrics.keys()
-    assert "test" in metrics.keys()
-    assert "pred" in metrics.keys()
